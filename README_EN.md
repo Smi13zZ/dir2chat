@@ -2,7 +2,7 @@
 
 English ｜ [**简体中文**](README.md)
 
-> Version: **26.10.16** ｜ In one line: watch a directory and push newly added / changed **images and Markdown files** to WeCom (WeChat Work) or QQ chats on a schedule — with a web UI for configuration and a one-command Docker deploy.
+> Version: **26.10.17** ｜ In one line: watch a directory and push newly added / changed **images and Markdown files** to WeCom (WeChat Work) or QQ chats on a schedule — with a web UI for configuration and a one-command Docker deploy.
 
 ---
 
@@ -96,7 +96,7 @@ sudo docker run -d --name dir2chat --restart unless-stopped \
   -v "$PWD/config:/config" \
   -v /path/to/watch:/data:ro \
   -e DIR2CHAT_CONFIG_DIR=/config -e TZ=Asia/Shanghai \
-  smi1ezz/dir2chat:26.10.16
+  smi1ezz/dir2chat:26.10.17
 ```
 
 ### Repository layout
@@ -456,7 +456,7 @@ sudo docker system prune -af
 
 ## 12. Version and upgrade
 
-- Current version: **26.10.16** (see `VERSION`; the image tag matches it, and `latest` always points to the newest release).
+- Current version: **26.10.17** (see `VERSION`; the image tag matches it, and `latest` always points to the newest release).
 - **Upgrading**: pull the new image and recreate the container — your configuration and data in `config/` are preserved.
 
 ```bash

@@ -2,6 +2,19 @@
 
 ---
 
+## 26.10.17（2026-10-14）
+
+**修复 Windows 检出时的换行符问题**：仓库内容本身无变化，仅调整 `.gitattributes` 规则。
+
+### 🩹 修复
+- `.gitattributes` 新增首行 **`* text=auto eol=lf`**，让**所有文本文件**（此前只有 `.sh/.py/.yml/.md/.html` 被覆盖）都统一以 LF 存库、以 LF 检出。
+- 此前未覆盖的文件（`Dockerfile`、`app/web/app.js`、`app/web/style.css`、`LICENSE`、`VERSION`、`.gitignore`、`.env.example`、`requirements.txt`）在 `core.autocrlf=true` 的 Windows 客户端上会被检出成 CRLF，可能导致从工作区 `docker compose build` 时 `Dockerfile` 的续行被 CR 破坏。现在已全部覆盖。
+- 补充 `.yaml/.css/.js/.json/.txt/.example` 的显式 LF 声明，以及 `*.jpg/.jpeg/.gif/.ico/.webp/.gz/.tar/.zip` 的二进制标记。
+
+> 说明：仓库内的 blob 一直是 LF（本次未改动任何文件内容），此修复解决的是**检出侧**行为；`.gitattributes` 的规则优先于客户端的 `core.autocrlf` 设置。
+
+---
+
 ## 26.10.16（2026-10-14）
 
 **文档与安装体验打磨：清除私有环境痕迹 + 新增完整英文文档**。

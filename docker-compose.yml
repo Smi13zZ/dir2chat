@@ -4,7 +4,7 @@ services:
     # 想从源码自行构建：取消下面 build 行的注释，然后
     #   docker compose build && docker compose up -d --force-recreate
     # （build 与 image 同时存在时，compose 会把构建结果打成 image 这个名字）
-    image: smi1ezz/dir2chat:26.10.16
+    image: smi1ezz/dir2chat:26.10.17
     # build: .
     container_name: dir2chat
     restart: unless-stopped

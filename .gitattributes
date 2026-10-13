@@ -1,6 +1,30 @@
+# 默认策略：自动识别文本文件，统一以 LF 存入库、以 LF 检出。
+# 即使客户端 gitconfig 里 core.autocrlf=true（Windows 常见），
+# 仓库中的文本文件也不会被检出成 CRLF —— 避免 Dockerfile 续行、
+# shell 脚本等被 CR 字符破坏。
+# 注意：.gitattributes 的规则优先于 core.autocrlf。
+* text=auto eol=lf
+
+# 显式声明为文本的文件（与上面一致，写明便于阅读）
 *.sh text eol=lf
 *.py text eol=lf
 *.yml text eol=lf
+*.yaml text eol=lf
 *.md text eol=lf
 *.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.txt text eol=lf
+*.example text eol=lf
+
+# 二进制文件：不做任何换行符转换
 *.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.gz binary
+*.tar binary
+*.zip binary

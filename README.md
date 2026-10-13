@@ -2,7 +2,7 @@
 
 [**English**](README_EN.md) ｜ 简体中文
 
-> 版本：**26.10.16** ｜ 一句话：监听一个目录，把新增/变更的**图片和 Markdown** 定时推送到企业微信、QQ 的聊天里，带 Web 配置界面，Docker 一键起。
+> 版本：**26.10.17** ｜ 一句话：监听一个目录，把新增/变更的**图片和 Markdown** 定时推送到企业微信、QQ 的聊天里，带 Web 配置界面，Docker 一键起。
 
 ---
 
@@ -94,7 +94,7 @@ sudo docker run -d --name dir2chat --restart unless-stopped \
   -v "$PWD/config:/config" \
   -v /你真实的目录:/data:ro \
   -e DIR2CHAT_CONFIG_DIR=/config -e TZ=Asia/Shanghai \
-  smi1ezz/dir2chat:26.10.16
+  smi1ezz/dir2chat:26.10.17
 ```
 
 ### 仓库结构
@@ -432,7 +432,7 @@ sudo docker system prune -af
 
 ## 12. 版本与升级
 
-- 当前版本：**26.10.16**（见 `VERSION`；镜像 tag 与之一致，`latest` 始终指向最新版）。
+- 当前版本：**26.10.17**（见 `VERSION`；镜像 tag 与之一致，`latest` 始终指向最新版）。
 - **升级**：拉新镜像并重建容器，`config/` 里的配置与数据都会保留。
 
 ```bash
