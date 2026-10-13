@@ -99,8 +99,7 @@
 
 ```
 # 要监听的宿主目录，会被只读挂载到容器 /data
-# DSA 默认产物目录：/vol1/1000/docker/daily-stock-analysis/share
-WATCH_DIR=/vol1/1000/report/daily-stock-analysisDIR2CHAT_PORT=8899   ← 两行粘成一行
+WATCH_DIR=/你真实的目录DIR2CHAT_PORT=8899   ← 两行粘成一行
 ```
 
 **根因**：`install.sh` 写端口用的是裸追加：
@@ -135,13 +134,13 @@ env_set() {
 以前只能改完 `.env` 再跑，现在可以一条命令搞定：
 
 ```bash
-sudo WATCH_DIR=/vol1/1000/report/daily-stock-analysis bash install.sh
+sudo WATCH_DIR=/你真实的目录 bash install.sh
 ```
 
 和 `DIR2CHAT_PORT` 一样会写回 `.env`。可与端口叠加：
 
 ```bash
-sudo DIR2CHAT_PORT=8091 WATCH_DIR=/srv/report bash install.sh
+sudo DIR2CHAT_PORT=8091 WATCH_DIR=/你真实的目录 bash install.sh
 ```
 
 > 实现细节：环境变量 `WATCH_DIR` 必须在解析参数时就存进 `WATCH_DIR_ENV`，

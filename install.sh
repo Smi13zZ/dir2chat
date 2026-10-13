@@ -6,7 +6,7 @@
 #   bash install.sh                                # 装到默认目录 /vol1/1000/docker/dir2chat
 #   bash install.sh /vol1/1000/docker/dir2chat     # 指定安装目录
 #   DIR2CHAT_PORT=8091 bash install.sh             # 8899 被占用时换个端口
-#   WATCH_DIR=/srv/report bash install.sh          # 指定监听目录（会写回 .env，覆盖 .env.example 默认值）
+#   WATCH_DIR=/你真实的目录 bash install.sh        # 指定监听目录（会写回 .env，覆盖默认值）
 #   FORCE=1 bash install.sh                        # 目录已部署过时，覆盖程序文件但保留数据(config/ 与 .env)
 #   sudo bash install.sh                           # 当前用户没有 Docker 权限时（未加入 docker 组）用 root 运行
 #
@@ -124,7 +124,7 @@ fi
 # ⚠️ 用 awk 重写整个文件，而不是 `echo >> .env` 追加 ——
 #    直接追加时，如果 .env 最后一行没有换行符（手工编辑过很常见），
 #    新行会跟最后一行**粘成一行**，例如
-#      WATCH_DIR=/vol1/1000/report/daily-stock-analysisDIR2CHAT_PORT=8899
+#      WATCH_DIR=/你真实的目录DIR2CHAT_PORT=8899
 #    这样两个配置项就都失效了。awk 重写保证「一行一条」。
 env_set() {
   local key="$1" val="$2"
@@ -158,11 +158,10 @@ fi
 
 # ---------- 4. 校验 WATCH_DIR ----------
 WATCH_DIR="$(grep -E '^WATCH_DIR=' .env | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//')"
-if [ -z "$WATCH_DIR" ] || [[ "$WATCH_DIR" == *"/path/to/"* ]]; then
+if [ -z "$WATCH_DIR" ] || [[ "$WATCH_DIR" == *"你真实的目录"* ]] || [[ "$WATCH_DIR" == *"/path/to/"* ]]; then
   echo ""
-  echo "✗ 请在 .env 中把 WATCH_DIR 改成你真实的监听目录，例如："
-  echo "    WATCH_DIR=/srv/daily-stock-analysis/share"
-  echo "  修改后重新运行 ./install.sh"
+  echo "✗ .env 里的 WATCH_DIR 还是占位符（或为空）：WATCH_DIR=/你真实的目录"
+  echo "  请改成你机器上【真实存在】的监听目录，再重新运行 ./install.sh"
   exit 1
 fi
 if [ ! -d "$WATCH_DIR" ]; then
@@ -277,7 +276,7 @@ echo "    重启：    sudo docker compose restart"
 echo "    查看日志： sudo docker compose logs -f"
 echo "    升级：    sudo docker compose pull && sudo docker compose up -d"
 echo "    换端口：  sudo DIR2CHAT_PORT=8091 bash install.sh   # 自动改 .env 并重建容器"
-echo "    换监听目录：sudo WATCH_DIR=/srv/report bash install.sh   # 自动改 .env 并重建容器"
+echo "    换监听目录：sudo WATCH_DIR=/你真实的目录 bash install.sh   # 自动改 .env 并重建容器"
 echo "    卸载：    sudo docker compose down && rm -rf config .env"
 echo "    改 .env： sudo nano .env        # sudo 装的 .env 归 root，普通用户改不了"
 echo ""

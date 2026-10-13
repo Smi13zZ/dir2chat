@@ -21,8 +21,8 @@ services:
     volumes:
       # 配置与 SQLite 库持久化
       - ./config:/config
-      # 监听目录，只读挂载。改成你自己的路径，例如 DSA 的 share 目录
-      - ${WATCH_DIR:-/vol1/1000/docker/daily-stock-analysis/share}:/data:ro
+      # 监听目录，只读挂载。务必在 .env 里把 WATCH_DIR 改成你自己的真实目录
+      - ${WATCH_DIR:-/你真实的目录}:/data:ro
     # 使用 Docker 自带的 bridge 网络，不再让 compose 另建 dir2chat_default。
     # 容器只有一个对外端口映射（8899），不需要服务间互相发现，
     # 用系统默认 bridge 更省事，也避免宿主机网络列表里多出一堆 *_default。

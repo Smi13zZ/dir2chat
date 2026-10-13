@@ -64,11 +64,11 @@ sudo bash install.sh
 ./install.sh                                  # 装到默认目录 /vol1/1000/docker/dir2chat（就地运行时即当前目录）
 ./install.sh /vol1/1000/docker/dir2chat       # 指定安装目录（只拷运行所需文件）
 DIR2CHAT_PORT=8091 ./install.sh               # 8899 被占用时换端口（自动写回 .env 并重建容器）
-WATCH_DIR=/srv/report ./install.sh            # 直接指定监听目录（自动写回 .env，覆盖默认值）
+WATCH_DIR=/你真实的目录 ./install.sh          # 直接指定监听目录（自动写回 .env，覆盖默认值）
 FORCE=1 ./install.sh                          # 目录已部署过时，覆盖程序文件但保留数据(config/ 与 .env)
 
 # 可叠加：一次把端口和监听目录都定好
-sudo DIR2CHAT_PORT=8091 WATCH_DIR=/vol1/1000/report/daily-stock-analysis bash install.sh
+sudo DIR2CHAT_PORT=8091 WATCH_DIR=/你真实的目录 bash install.sh
 ```
 
 脚本会自动完成：解析目录/端口/监听目录 → 部署文件 → 检查 Docker → 生成 `.env` → 校验监听目录 → 创建 `config/` → 拉取镜像 → 启动容器 → 等待健康检查。
@@ -140,13 +140,13 @@ dir2chat/
 **方式一（推荐）：安装时直接带变量**，脚本会自动写进 `.env`：
 
 ```bash
-sudo WATCH_DIR=/你/真实/的/目录 bash install.sh
+sudo WATCH_DIR=/你真实的目录 bash install.sh
 ```
 
 **方式二：装完之后手动改 `.env`**：
 
 ```ini
-WATCH_DIR=/你/真实/的/目录
+WATCH_DIR=/你真实的目录
 DIR2CHAT_PORT=8899
 ```
 
@@ -155,7 +155,7 @@ DIR2CHAT_PORT=8899
 > **⚠ 一行一条，不要把两行写在同一行。** 常见错误（会导致两个配置项同时失效）：
 >
 > ```
-> WATCH_DIR=/vol1/1000/report/daily-stock-analysisDIR2CHAT_PORT=8899
+> WATCH_DIR=/你真实的目录DIR2CHAT_PORT=8899
 > ```
 >
 > `WATCH_DIR=...` 后面必须换行。安装脚本写 `.env` 时会自动保证「一行一条」，不会追加到上一行末尾。
