@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>dir2chat · 目录推送</title>
+<link rel="icon" type="image/png" sizes="32x32" href="/static/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/static/icon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="/static/apple-touch-icon.png">
+<meta name="theme-color" content="#2f6bff">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<h2 class="sr-only">dir2chat 目录监听推送配置界面</h2>
+
+<header class="topbar">
+  <div class="bar-inner">
+    <div class="brand">
+      <img class="brand-logo" src="/static/icon-64.png" alt="dir2chat" width="26" height="26">
+      <span class="brand-name">dir2chat</span><span class="ver" id="ver"></span>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="topbar-actions">
+      <button class="btn icon-btn" id="btn-toggle-status" title="显示/隐藏运行状态" aria-label="显示或隐藏运行状态">📊</button>
+      <button class="btn primary" id="btn-scan">立即扫描</button>
+    </div>
+  </div>
+</header>
+
+<nav class="tabs">
+  <div class="bar-inner">
+    <button class="tab active" data-tab="overview">概览</button>
+    <button class="tab" data-tab="channels">通道</button>
+    <button class="tab" data-tab="rules">规则</button>
+    <button class="tab" data-tab="logs">记录</button>
+  </div>
+</nav>
+
+<main>
+  <div class="page-width">
+  <section id="tab-overview" class="panel active">
+    <div class="cards" id="overview-cards"></div>
+
+    <div class="block">
+      <div class="block-head">
+        <h3>扫描设置</h3>
+        <div class="row">
+          <button class="btn primary" id="btn-save-scan">保存扫描设置</button>
+        </div>
+      </div>
+      <div class="grid">
+        <div class="field"><label>轮询间隔（秒）</label>
+          <input type="number" min="5" id="scan-interval" value="60">
+          <div class="help">默认 60 秒扫一次，最小 5 秒。每条规则可在「规则」页单独覆盖。</div></div>
+        <div class="field"><label>文件稳定时间（秒）</label>
+          <input type="number" min="0" id="scan-stable" value="5">
+          <div class="help">文件最后修改距今超过该秒数才认为写完了</div></div>
+        <div class="field"><label>每轮最多推送文件数</label>
+          <input type="number" min="1" id="scan-maxfiles" value="500">
+          <div class="help">只统计「待推送」的新文件；已推送过的历史文件不占这个名额，不会挤掉新文件</div></div>
+        <div class="field"><label>内容哈希缓存条数</label>
+          <input type="number" min="0" id="scan-digestcache" value="5000">
+          <div class="help">记住文件的大小与修改时间，两者都没变就复用上次的哈希、不再重读文件。<b>0 = 关闭缓存</b></div></div>
+        <div class="field"><label>目录冷却跳过（天）</label>
+          <input type="number" min="0" id="scan-idledays" value="0">
+          <div class="help">子目录超过该天数无任何变动就不再进去扫描，<b>0 = 关闭</b>。⚠️ 开启后该目录下的失败重试与补推都不会再发生</div></div>
+        <div class="field"><label>扫描总开关</label>
+          <select id="scan-enabled">
+            <option value="true">开启（按间隔轮询）</option>
+            <option value="false">暂停（不自动扫描）</option>
+          </select>
+          <div class="help">暂停后「立即扫描」仍可手动触发</div></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <div class="block-head">
+        <h3>配置备份</h3>
+        <div class="row">
+          <button class="btn" id="btn-export">⬇ 备份配置</button>
+          <button class="btn" id="btn-import">⬆ 导入配置</button>
+          <input type="file" id="import-file" accept="application/json,.json" hidden>
+        </div>
+      </div>
+      <p class="help">备份会导出全部通道（含凭据）、规则、定时与扫描参数为一份 JSON 文件；导入会<b>整体覆盖</b>当前配置，请谨慎操作。</p>
+    </div>
+
+    <div class="block">
+      <div class="block-head">
+        <h3>时区与时间</h3>
+        <div class="row">
+          <button class="btn primary" id="btn-save-time">保存时间设置</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="field">
+          <label>当前系统时间</label>
+          <div class="clock-line">
+            <span class="clock" id="time-now">--:--:--</span>
+            <span class="badge" id="time-tz-badge">--</span>
+          </div>
+          <div class="help" id="time-date">—</div>
+        </div>
+        <div class="field"><label>时区</label>
+          <select id="time-timezone"></select>
+          <div class="help" id="time-tz-help">选择所在时区，影响定时窗口的判断与记录时间显示</div></div>
+      </div>
+
+      <div class="time-mode">
+        <div class="tm-row">
+          <span class="tm-label">时间</span>
+          <label class="radio-inline"><input type="radio" name="time-mode" value="auto" id="time-mode-auto"> 自动同步</label>
+          <label class="radio-inline"><input type="radio" name="time-mode" value="manual" id="time-mode-manual"> 手动设置</label>
+        </div>
+
+        <div class="tm-body" id="time-auto-body">
+          <div class="field">
+            <label>时间服务器</label>
+            <select id="time-ntp-server"></select>
+            <div class="help">按设定周期自动与本机对时；也可点「立即同步」手动触发一次</div>
+          </div>
+          <div class="custom-server">
+            <div class="cs-head">
+              <span class="cs-title">自定义服务器</span>
+              <span class="help">支持局域网地址，如 <code>192.168.1.1</code>、<code>ntp.local</code>、<code>192.168.1.5:123</code></span>
+            </div>
+            <div class="row cs-add">
+              <input type="text" id="ntp-custom-input" placeholder="输入 NTP 服务器地址或 IP" autocomplete="off" spellcheck="false">
+              <button class="btn" id="btn-ntp-add">添加</button>
+            </div>
+            <div class="help" id="ntp-custom-msg"></div>
+            <div class="cs-list" id="ntp-custom-list"></div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" id="btn-ntp-test">测试服务器</button>
+            <button class="btn primary" id="btn-ntp-sync">立即同步</button>
+            <span class="help" id="ntp-result"></span>
+          </div>
+        </div>
+
+        <div class="tm-body" id="time-manual-body" style="display:none">
+          <div class="field">
+            <label>设置日期与时间</label>
+            <input type="datetime-local" id="time-manual-input" step="1">
+            <div class="help">按上面选择的时区解释你填写的本地时间</div>
+          </div>
+          <div class="row" style="margin-top:10px">
+            <button class="btn" id="btn-manual-now">填入当前时间</button>
+            <button class="btn primary" id="btn-manual-apply">应用时间</button>
+            <span class="help" id="manual-result"></span>
+          </div>
+        </div>
+
+        <div class="help" id="time-cap-warn" style="margin-top:10px;display:none"></div>
+      </div>
+    </div>
+
+    <div class="block">
+      <h3>通道健康</h3>
+      <div id="overview-channels" class="list"></div>
+    </div>
+    <div class="block">
+      <h3>快速上手</h3>
+      <ol class="steps">
+        <li>到「通道」页添加一个通道，起个好记的名字，填好凭据后点「测试」。</li>
+        <li>到「规则」页新建规则：填监听目录（容器内路径）、文件模式、勾选要绑定的通道（只列出已启用的通道）。</li>
+        <li>需要定时？在规则里打开「定时开关」并设置时间窗口，只在该时段推送这条规则。</li>
+        <li>轮询间隔默认跟随上方「扫描设置」；某条规则想单独设，可在规则里填「独立轮询间隔」。</li>
+      </ol>
+      <p class="hint">同一文件的内容哈希不变就只会发一次；想重发用规则上的「清空记录」。</p>
+    </div>
+  </section>
+
+  <section id="tab-channels" class="panel">
+    <div class="block-head">
+      <h3>通道</h3>
+      <div class="row">
+        <input class="name-input" id="new-channel-name" placeholder="通道名称（如：投资群）">
+        <div class="picker" id="type-picker">
+          <button type="button" class="picker-btn" id="picker-btn" aria-haspopup="listbox">
+            <span class="picker-dot" id="picker-dot"></span>
+            <span class="picker-label" id="picker-label"></span>
+            <svg class="picker-chevron" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5L6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <div class="picker-menu" id="picker-menu" role="listbox"></div>
+        </div>
+        <button class="btn primary" id="btn-add-channel">新增通道</button>
+      </div>
+    </div>
+    <div id="channel-list" class="list"></div>
+  </section>
+
+  <section id="tab-rules" class="panel">
+    <div class="block-head">
+      <h3>监听规则</h3>
+      <div class="row">
+        <button class="btn" id="btn-refresh-channels" title="重新拉取最新通道列表">↻ 刷新通道</button>
+        <button class="btn" id="btn-add-rule">新增规则</button>
+      </div>
+    </div>
+    <div id="rule-list" class="list"></div>
+  </section>
+
+  <section id="tab-logs" class="panel">
+    <div class="block-head">
+      <h3>记录</h3>
+      <div class="row">
+        <div class="seg" id="log-switch">
+          <button class="seg-btn active" data-view="history">发送记录</button>
+          <button class="seg-btn" data-view="events">事件日志</button>
+        </div>
+        <button class="btn" id="btn-export-logs">⬇ 导出</button>
+        <button class="btn" id="btn-clear-logs">🗑 清空发送记录</button>
+      </div>
+    </div>
+
+    <div class="filters" id="log-filters">
+      <input class="filter-input" id="flt-time" placeholder="筛选时间（如 2026-10 或 17:2）">
+      <select class="filter-input" id="flt-channel"><option value="">全部通道</option></select>
+      <select class="filter-input" id="flt-kind"><option value="">全部类型</option></select>
+      <select class="filter-input" id="flt-level"><option value="">全部级别</option></select>
+      <label class="switch-inline"><input type="checkbox" id="only-fail"> 只看失败/跳过</label>
+      <span class="filter-count" id="log-count"></span>
+    </div>
+
+    <div id="history" class="table-wrap log-box"></div>
+    <div id="events" class="table-wrap log-box" style="display:none"></div>
+    <div class="pager" id="log-pager"></div>
+    <div class="log-blank" id="log-blank" title="点击空白处翻到下一页"></div>
+  </section>
+  </div>
+</main>
+
+<div id="toast" class="toast"></div>
+<div id="tooltip" class="tooltip"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,36 @@
+services:
+  dir2chat:
+    build: .
+    image: dir2chat:26.10.14
+    container_name: dir2chat
+    restart: unless-stopped
+    # 允许容器修改系统时间（「时区与时间」里的手动设置 / NTP 同步需要）。
+    # 只查询不对时、或不需要改时间的，可以删掉这段。
+    cap_add:
+      - SYS_TIME
+    environment:
+      DIR2CHAT_CONFIG_DIR: /config
+      TZ: Asia/Shanghai
+    ports:
+      # 宿主端口由 ${DIR2CHAT_PORT:-8899} 控制（安装脚本会注入），容器内固定 8899
+      - "${DIR2CHAT_PORT:-8899}:8899"
+    volumes:
+      # 配置与 SQLite 库持久化
+      - ./config:/config
+      # 监听目录，只读挂载。改成你自己的路径，例如 DSA 的 share 目录
+      - ${WATCH_DIR:-/vol1/1000/docker/daily-stock-analysis/share}:/data:ro
+    # 使用 Docker 自带的 bridge 网络，不再让 compose 另建 dir2chat_default。
+    # 容器只有一个对外端口映射（8899），不需要服务间互相发现，
+    # 用系统默认 bridge 更省事，也避免宿主机网络列表里多出一堆 *_default。
+    #
+    # ⚠️ 为什么用 network_mode 而不是 networks:
+    # compose 给容器挂网络时会自动注入一个 network-scoped alias（默认项目名），
+    # 而系统自带的 bridge 是 **non-user-defined** 网络，不支持别名 → 一挂就报
+    #   "network-scoped alias is supported only for containers in user defined networks"
+    # （`networks: [bridge]`、`aliases: []`、自定义别名全都不行，daemon 层面直接拒）。
+    # `network_mode: "bridge"` 走的是「容器模式下指定网络」，compose 完全不参与
+    # 网络的创建与别名注入，正是为这种场景准备的。
+    #
+    # 注意：network_mode 与 networks / ports 的写法有区别 ——
+    # 端口仍然用 ports 映射即可（等价于 docker run --network bridge -p 8899:8899）。
+    network_mode: bridge

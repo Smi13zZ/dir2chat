@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>dir2chat 安装与配置教程 · 26.10.14</title>
+<style>
+  :root{
+    --bg:#f5f7fb; --card:#ffffff; --ink:#1a1e26; --muted:#687180;
+    --line:#e7ebf2; --brand:#6366f1; --brand2:#0ea5e9;
+    --c-webhook:#3b82f6; --c-bot:#6366f1; --c-app:#0ea5e9; --c-qq:#e2231a;
+    --ok:#10b981; --warn:#f59e0b; --radius:16px;
+    --shadow:0 6px 24px rgba(31,41,55,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+       background:var(--bg);color:var(--ink);line-height:1.7;-webkit-font-smoothing:antialiased}
+  .hero{background:linear-gradient(120deg,#6366f1,#0ea5e9 60%,#22d3ee);color:#fff;padding:54px 24px 46px}
+  .hero-in{max-width:920px;margin:0 auto}
+  .hero h1{margin:0;font-size:34px;letter-spacing:-.5px}
+  .hero p{margin:12px 0 0;opacity:.95;font-size:15px;max-width:640px}
+  .badge{display:inline-block;background:rgba(255,255,255,.2);border:1px solid rgba(255,255,255,.35);
+         padding:3px 12px;border-radius:999px;font-size:13px;font-weight:600;margin-bottom:14px}
+  .wrap{max-width:920px;margin:0 auto;padding:8px 24px 64px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+        padding:26px 28px;margin:22px 0;box-shadow:var(--shadow)}
+  h2{font-size:21px;margin:0 0 14px;display:flex;align-items:center;gap:10px}
+  h2 .n{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,var(--brand),var(--brand2));
+        color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:14px;font-weight:700}
+  h3{font-size:16px;margin:22px 0 8px}
+  p{margin:10px 0;color:#2b3140}
+  code{background:#eef1f7;color:#4338ca;padding:2px 7px;border-radius:6px;font-size:13px;
+       font-family:"SF Mono",Consolas,Menlo,monospace}
+  pre{background:#0f172a;color:#e2e8f0;border-radius:12px;padding:16px 18px;overflow:auto;font-size:13px;line-height:1.6}
+  pre code{background:none;color:inherit;padding:0}
+  .step{display:flex;gap:14px;align-items:flex-start;margin:12px 0}
+  .step .dot{flex:0 0 auto;width:26px;height:26px;border-radius:50%;background:var(--brand);color:#fff;
+           display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;margin-top:2px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:6px 0}
+  th,td{border:1px solid var(--line);padding:9px 11px;text-align:center}
+  th{background:#f3f5fa;font-weight:600}
+  td.l,th.l{text-align:left}
+  .y{color:var(--ok);font-weight:600}.n{color:#94a3b8}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:8px}
+  .chan{border:1px solid var(--line);border-radius:12px;padding:14px 16px;background:#fcfdff}
+  .chan .top{display:flex;align-items:center;gap:9px;font-weight:700;margin-bottom:6px}
+  .dotc{width:11px;height:11px;border-radius:50%}
+  .note{border-left:4px solid var(--warn);background:#fffbeb;padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0;font-size:14px}
+  .warn{border-left:4px solid #dc2626;background:#fef2f2;padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0;font-size:14px}
+  .ok{border-left:4px solid var(--ok);background:#ecfdf5;padding:12px 16px;border-radius:0 10px 10px 0;margin:14px 0;font-size:14px}
+  .flow{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:6px 0 2px}
+  .flow .box{background:#eef1f7;border:1px solid var(--line);border-radius:10px;padding:9px 14px;font-size:13.5px}
+  .flow .arr{color:var(--muted);font-weight:700}
+  footer{text-align:center;color:var(--muted);font-size:13px;padding:30px}
+  a{color:var(--brand)}
+  .sched{display:flex;flex-wrap:wrap;gap:12px;margin:10px 0}
+  .sched .win{background:#eef2ff;border:1px solid #c7d2fe;border-radius:10px;padding:10px 14px;font-size:13.5px}
+  .sched .win b{color:#4338ca}
+</style>
+</head>
+<body>
+<div class="hero">
+  <div class="hero-in">
+    <span class="badge">dir2chat 26.10.14</span>
+    <h1>目录 → 聊天 推送服务</h1>
+    <p>监听一个目录，把新增或变更的<b>图片和 Markdown</b> 定时推送到企业微信、QQ 的聊天里。带 Web 配置界面，Docker 一键起。<b>每条规则可独立定时与独立轮询间隔</b>、通道可自定义名称、记录页固定 15 行分页（可筛选/导出/点空白翻页）、配置可备份导入、<b>内置时区与时间同步（支持自定义服务器）</b>、<b>手机端适配</b>。</p>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="card">
+    <h2><span class="n">1</span>这是什么</h2>
+    <p>dir2chat 是一个常驻的 Docker 服务：</p>
+    <div class="flow">
+      <span class="box">📁 你的目录</span><span class="arr">→</span>
+      <span class="box">⏱ 定时轮询扫描</span><span class="arr">→</span>
+      <span class="box">🔁 幂等去重</span><span class="arr">→</span>
+      <span class="box">💬 企业微信 / QQ</span>
+    </div>
+    <p>定时轮询（默认 60s，可在界面上调，规则可单独设间隔）发现新文件或内容变更时，按你配置的规则推送。图片超大会自动压缩、Markdown 超长会退化成文件消息、再超长会切片。最典型的用法：把 daily-stock-analysis 每天生成的分享图 + 报告<b>自动发到群里</b>。</p>
+
+    <h3>支持的通道与能力对比</h3>
+    <table>
+      <tr><th class="l">通道</th><th>文本</th><th>Markdown</th><th>图片</th><th>文件</th><th class="l">可发给</th><th class="l">备注</th></tr>
+      <tr><td class="l"><span class="dotc" style="background:var(--c-webhook);display:inline-block;margin-right:6px"></span>群机器人 Webhook</td><td class="y">✓</td><td class="y">✓</td><td class="y">≤2MB</td><td class="y">5B–20MB</td><td class="l">内部群</td><td class="l">最简单；file 无文件名；20条/分</td></tr>
+      <tr><td class="l"><span class="dotc" style="background:var(--c-bot);display:inline-block;margin-right:6px"></span>智能机器人</td><td class="y">经MD</td><td class="y">≤20KB</td><td class="y">≤10MB</td><td class="y">≤20MB</td><td class="l">内部群</td><td class="l">能力最强；群聊 chat_type=2</td></tr>
+      <tr><td class="l"><span class="dotc" style="background:var(--c-app);display:inline-block;margin-right:6px"></span>应用消息</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="l">指定成员</td><td class="l">唯一能发个人的通道</td></tr>
+      <tr><td class="l"><span class="dotc" style="background:var(--c-qq);display:inline-block;margin-right:6px"></span>QQ 官方机器人</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="y">✓</td><td class="l">群 / 私聊</td><td class="l">需 appId/secret；群主动推送需群主开</td></tr>
+    </table>
+    <div class="note">微信<strong>个人号</strong>没有官方对外发送通道，本项目不包含（需另行在 Windows 常驻机跑 RPA / WeChatFerry）。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">2</span>环境要求</h2>
+    <ul>
+      <li><b>Docker Engine 20.10+</b>，且包含 <b>docker compose v2</b>（<code>docker compose version</code> 有输出）</li>
+      <li>推荐 <b>Linux / amd64</b>（本包已内置该架构预置镜像，可<b>离线安装</b>）；其他架构自动改为从源码构建（需联网）</li>
+      <li>约 <b>250MB</b> 磁盘空间</li>
+      <li>仅本机 / 内网访问：防火墙放行 <b>8899</b> 端口，<b>不要</b>直接暴露公网</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">3</span>一键安装</h2>
+    <pre><code># 解压
+tar xzf dir2chat-installer-26.10.14.tar.gz
+cd dir2chat-26.10.14
+
+# 安装（检查 Docker → 生成配置 → 载入预置镜像 → 启动）
+sudo bash install.sh</code></pre>
+    <div class="warn"><b>请务必加 <code>sudo</code>（用 root 权限运行）。</b>安装脚本要调用 Docker——访问 <code>/var/run/docker.sock</code>、<code>docker load</code> 载入镜像、启动容器——普通用户执行会报 <code>permission denied while trying to connect to the Docker daemon socket</code>。<br>
+    如果你已经把自己加进了 <code>docker</code> 组（<code>sudo usermod -aG docker $USER</code>，之后<b>重新登录</b>或执行 <code>newgrp docker</code>），那么可以不加 sudo，直接 <code>bash install.sh</code>。</div>
+    <p>脚本会自动完成：检查 Docker → 生成 <code>.env</code> → 校验监听目录 → 创建 <code>config/</code> → 载入预置镜像（离线）→ 启动容器 → 等待健康检查。</p>
+    <h3>可用的前置变量</h3>
+    <p>把变量写在 <code>bash install.sh</code> 之前，即可免手工改 <code>.env</code>：</p>
+    <pre><code>DIR2CHAT_PORT=8091 bash install.sh          # 换对外端口（8899 被占用时）
+WATCH_DIR=/vol1/1000/report/daily-stock-analysis bash install.sh   # 指定监听目录
+FORCE=1 bash install.sh                     # 目录已部署过：覆盖程序文件、保留 config/ 与 .env
+bash install.sh /vol1/1000/docker/dir2chat  # 指定安装目录（只拷运行所需文件）
+
+# 可以叠加：一次把端口和监听目录都定好
+sudo DIR2CHAT_PORT=8091 WATCH_DIR=/vol1/1000/report/daily-stock-analysis bash install.sh</code></pre>
+    <p>这些值都会被写回 <code>.env</code>（<b>一行一条</b>），后续 <code>docker compose</code> 命令会自动沿用。</p>
+    <div class="note">Windows 用户：在 <b>WSL2</b> 或 <b>Git Bash</b> 里跑 <code>sudo bash install.sh</code>；或 Docker Desktop 装好后直接手动 <code>docker compose up -d</code>。</div>
+    <h3>包内结构</h3>
+    <pre><code>dir2chat-26.10.14/
+├── install.sh                      # 一键安装脚本
+├── README.md                       # 文字教程
+├── 教程.html                       # 图文教程（本页）
+├── docker-compose.yml              # 服务编排（使用系统自带 bridge 网络）
+├── Dockerfile                      # 镜像构建
+├── .env.example                    # 配置样例
+├── VERSION                         # 版本号
+├── dir2chat-26.10.14-image.tar.gz   # 预置镜像（可删）
+├── app/                            # 服务源码
+└── config/                         # 运行时配置（首次启动生成）</code></pre>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">4</span>配置监听目录（必须）</h2>
+    <p>两种方式，任选其一。</p>
+    <p><b>方式一（推荐）：安装时直接带变量</b>，脚本会自动写进 <code>.env</code>：</p>
+    <pre><code>sudo WATCH_DIR=/你/真实/的/目录 bash install.sh</code></pre>
+    <p><b>方式二：装完之后手动改 <code>.env</code></b>：</p>
+    <pre><code>WATCH_DIR=/你/真实/的/目录
+DIR2CHAT_PORT=8899</code></pre>
+    <div class="warn"><b>改 <code>.env</code> 前先确认有 root 权限。</b>如果你是用 <code>sudo bash install.sh</code> 装的，那么 <code>.env</code>、<code>config/</code> 都归 root 所有，普通用户打开会提示「只读 / 无法保存」。请用 <code>sudo nano .env</code>（或 <code>sudo vi .env</code>）编辑，改完再 <code>sudo docker compose up -d</code>。</div>
+    <div class="warn"><b>⚠ 一行一条，千万不要两行写在同一行。</b>常见错误是这样粘在一起：<br>
+    <code>WATCH_DIR=/vol1/1000/report/daily-stock-analysisDIR2CHAT_PORT=8899</code><br>
+    这会让 <code>WATCH_DIR</code> 变成一个不存在的路径、同时 <code>DIR2CHAT_PORT</code> 也彻底失效。<br>
+    <code>WATCH_DIR=...</code> 之后必须换行。安装脚本写 <code>.env</code> 时会自动保证「一行一条」（不会追加到上一行末尾）。</div>
+    <p>这个目录会被<b>只读</b>挂进容器的 <code>/data</code>。dir2chat 会<b>递归</b>扫描其下的子目录——所以像 DSA 那种 <code>share/2026-10-11/</code> 的日期子目录也能自动识别。</p>
+    <p>改完让配置生效：<code>sudo docker compose up -d</code>。注意：<code>.env</code> 里写的是<b>宿主机路径</b>，容器内部固定是 <code>/data</code>。</p>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">5</span>Web 界面配置（三步）</h2>
+    <div class="step"><span class="dot">1</span><div><b>通道</b> tab → 填<b>通道名称</b>（如「投资群」）→ 选类型 → 「新增通道」→ 填凭据 → 点「测试」确认连通</div></div>
+    <div class="step"><span class="dot">2</span><div><b>规则</b> tab → 「新增规则」→ <code>watch_dir</code> 填 <code>/data</code>，<code>include</code> 填 <code>*.png</code> + <code>*.md</code> → <b>点击</b>通道标签绑定</div></div>
+    <div class="step"><span class="dot">3</span><div>回到「概览」点「立即扫描」，看「记录」里有没有成功发出的条目</div></div>
+
+    <div class="grid">
+      <div class="chan"><div class="top"><span class="dotc" style="background:var(--c-webhook)"></span>群机器人 Webhook</div>
+        <p style="font-size:13px;margin:0">群设置→添加机器人→拿 Webhook URL 填入。图片≤2MB（自动压缩）、file 无文件名、20条/分、仅内部群。</p></div>
+      <div class="chan"><div class="top"><span class="dotc" style="background:var(--c-bot)"></span>智能机器人</div>
+        <p style="font-size:13px;margin:0">后台创建拿 bot_id/secret，进群后取 chatid；群聊 chat_type=2；图片≤10MB、文件带文件名、无 text 类型。</p></div>
+      <div class="chan"><div class="top"><span class="dotc" style="background:var(--c-app)"></span>应用消息</div>
+        <p style="font-size:13px;margin:0">需 corpid/secret/agentid，是唯一能指定发给某成员的通道；临时素材 3 天有效。</p></div>
+      <div class="chan"><div class="top"><span class="dotc" style="background:var(--c-qq)"></span>QQ 官方机器人</div>
+        <p style="font-size:13px;margin:0">开放平台拿 appId/secret；群主动推送需群主开启开关；群/私聊上传端点独立。</p></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">6</span>定时开关（<b>每条规则独立控制</b>）</h2>
+    <p>定时开关位于<b>每条规则内部</b>，各规则互不影响。打开某条规则的 <b>⏰ 定时开关</b>：</p>
+    <ul>
+      <li><b>开启后</b>，只有在该规则的<b>时间窗口</b>内才会扫描并推送这条规则；<b>窗口外自动暂停</b>（文件不会丢，回到窗口后继续推送）。</li>
+      <li><b>不同规则可设不同时段</b>：如「行情图」只在 <code>09:00–15:00</code> 推送，「日报」全天推送。</li>
+      <li><b>手动「立即扫描」不受定时限制</b>——任何时候都能强制触发一次推送。</li>
+      <li>支持<b>多条时间窗口</b>，也支持<b>跨午夜</b>：</li>
+    </ul>
+    <div class="sched">
+      <div class="win"><b>09:00 – 22:00</b><br>白天工作时段推送</div>
+      <div class="win"><b>22:00 – 06:00</b><br>深夜静默（跨午夜）</div>
+    </div>
+    <ul>
+      <li><b>时区</b>默认 <code>Asia/Shanghai</code>（依赖 <code>tzdata</code>；无时区数据时回退服务器本地时间）。</li>
+      <li>规则卡片<b>实时显示相位</b>：「✅ 当前在推送窗口内」或「⏸ 窗口外暂停」。</li>
+      <li>配置保存在 <code>config/config.json</code> 的 <code>rules[].schedule</code>，重新部署时会被保留。</li>
+    </ul>
+    <div class="ok">典型用法：给「行情图」规则设 09:00–15:00，只在交易时段自动推送；其余规则保持全天。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">7</span>轮询间隔可调（全局 + 规则级）</h2>
+    <ul>
+      <li><b>全局</b>：「概览 → 扫描设置」里可改<b>轮询间隔</b>（秒，最小 5）、文件稳定时间、每轮最多文件数、扫描总开关，点「保存扫描设置」生效。</li>
+      <li><b>规则级</b>：每条规则的「独立轮询间隔」填 <code>0</code> 或留空 = 跟随全局；填 <code>≥5</code> 的整数则该规则单独按此间隔扫描。</li>
+      <li>不同规则可有不同节奏，互不干扰。</li>
+    </ul>
+    <div class="ok">推荐：全局 60s 够用；某条要更及时就单独设 15s，不必整体加快。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">8</span>绑定通道只显示已启用的通道</h2>
+    <ul>
+      <li>规则卡片的通道绑定列表<b>默认只列出已启用的通道</b>，未启用的不再出现，避免误绑。</li>
+      <li>若某个已绑定的通道随后被<b>停用</b>，它仍会保留显示（虚线灰显 + 「已停用」标签），方便手动解绑，不会「看不见又解不掉」。</li>
+      <li>其余未绑定的停用通道会隐藏，并提示隐藏了几个。</li>
+    </ul>
+    <div class="note">补充：切换标签时内容区会自动回到顶部，顶部标签栏始终固定在原位，不会上下滑动。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">9</span>记录页（筛选 / 分页 / 导出）</h2>
+    <ul>
+      <li><b>两个并列按钮</b>：「发送记录」与「事件日志」，点哪个显示哪个。</li>
+      <li>表格宽度固定，内容超长自动<b>省略号截断</b>，<b>鼠标悬停显示完整内容</b>。</li>
+      <li><b>筛选</b>：时间（模糊）、通道、类型、级别；发送记录另有「只看失败/跳过」。</li>
+      <li><b>分页</b>：每页固定 <b>15 行</b>，超出只翻页、<b>纵向不滚动</b>；不足 15 行补空行，每页高度恒定不跳动。</li>
+      <li><b>空白处也能翻页</b>：表格下方的留白点一下即翻到下一页（到末页后再点翻上一页）；点到表格/按钮本身不会误触发。</li>
+      <li><b>⬇ 导出</b>：当前筛选结果导出为 CSV（带 BOM，Excel 打开中文不乱码）。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">10</span>界面宽度与项目图标</h2>
+    <ul>
+      <li><b>顶栏、标签栏、内容区三者等宽且居中</b>：共用同一个宽度变量（默认最大 <b>1543px</b>，
+          = 参考站 msn.cn 的 1187px × 1.3），左右留白自动均分。</li>
+      <li><b>滚动条始终在窗口最右侧</b>：滚动容器是通栏的外层，内容收窄居中在其内部，不受内容宽度影响。</li>
+      <li><b>翻页仍是全屏空白点击翻页</b>：点内容两侧的留白、甚至滚动条旁的区域都能翻页。</li>
+      <li>窗口宽度 ≤ 1600px 时自动取消宽度上限，避免窄屏被明显压缩。</li>
+      <li><b>项目 logo 与网页图标</b>：左上角显示项目 logo（纯图标，26px），
+          浏览器标签页 / 添加到主屏也都有对应图标（favicon 16/32、apple-touch-icon 180）。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">11</span>时区与时间（自动同步 / 手动设置）</h2>
+    <p>「概览」页新增<b>时区与时间</b>区块，界面上有实时时钟与时区徽标：</p>
+    <ul>
+      <li><b>时区</b>：内置常用时区（默认 <code>Asia/Shanghai</code>，即 UTC+08:00 北京/重庆/中国香港），
+        也可从 zoneinfo 里选其它地区；切换后定时窗口判断与记录时间一并跟随。</li>
+      <li><b>自动同步</b>（默认）：选择<b>时间服务器</b>后点「立即同步」，或让后台按
+        <code>time.auto_sync_hours</code>（默认 6 小时）周期自动对时。
+        点「测试服务器」只查询不改时间，会显示本机与服务器的偏差和网络延迟。</li>
+      <li><b>自定义服务器</b>：在「自定义服务器」区填入地址点「添加」即可加入下拉并可选中。
+        支持<b>域名 / IPv4 / IPv6 / 局域网主机名</b>，可带端口，例如
+        <code>192.168.1.1</code>、<code>ntp.local</code>、<code>192.168.1.5:123</code>；
+        误粘贴的 <code>ntp://</code>、<code>http://</code> 前缀会被自动剥掉。
+        已添加项以标签展示，点标签上的 <b>×</b> 可删除。</li>
+      <li><b>手动设置</b>：切到「手动设置」，选好日期时间后点「应用时间」（可先点「填入当前时间」）。</li>
+      <li><b>校时需要权限</b>：容器默认不能改系统时间，已在 <code>docker-compose.yml</code> 里加上
+        <code>cap_add: [SYS_TIME]</code>。若缺失，界面会明确提示原因与改法，不会静默失败。</li>
+    </ul>
+    <div class="note">时间同步用内置的轻量 SNTP 客户端（UDP 123 标准报文），<b>不依赖</b> ntpd / chrony / systemd-timesyncd，容器里直接可用。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">12</span>手机端适配</h2>
+    <ul>
+      <li><b>顶栏收敛</b>：手机上运行状态默认收起，点顶栏 <b>📊</b> 图标展开/折叠，顶栏高度从 237px 降到 77px。</li>
+      <li><b>触摸目标加大</b>：按钮 ≥40px、主要操作 ≥42px，单选与开关标签 ≥40px，手指点得准。</li>
+      <li><b>表单单列全宽</b>：输入框加高到 42px、字号 15px，避免 iOS 聚焦时自动放大页面。</li>
+      <li><b>标签栏可横滑</b>：四个标签在窄屏下可左右滑动，不会挤压变形。</li>
+      <li><b>表格</b>横向滚动更顺滑，筛选器全宽堆叠，分页按钮摊开更好点。</li>
+      <li>已适配全面屏底部安全区，并去掉了触屏上「粘住」的悬停样式。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">13</span>配置备份 / 导入</h2>
+    <p>「概览」页顶部新增<b>配置备份</b>：</p>
+    <ul>
+      <li><b>⬇ 备份配置</b>：导出全部配置（通道凭据、规则、定时、扫描参数）为一份 JSON。</li>
+      <li><b>⬆ 导入配置</b>：选择 JSON 文件<b>整体覆盖</b>当前配置（有二次确认）。</li>
+      <li>适合迁移到新机器、或备份后误删恢复。</li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">14</span>推送规则与行为</h2>
+    <ul>
+      <li><b>轮询扫描</b>：默认 60s 一次（概览页可调，规则可单独覆盖）；文件需「稳定 5s 且大小两次不变」才处理，避免发半截文件</li>
+      <li><b>幂等</b>：同一 <code>(规则, 通道, 路径, sha256)</code> 只发一次；内容变了才重发（每天 DSA 重写报告会重发，没动的不刷屏）</li>
+      <li><b>图片压缩</b>：超过通道上限自动压（webhook 2MB / 智能机器人 10MB）</li>
+      <li><b>Markdown 退化</b>：超 3800 字节变文件消息；再超长切片并带 <code>(i/n)</code> 标记</li>
+    </ul>
+    <div class="note">企业微信 webhook 的 file 消息<b>无文件名</b>（官方限制）。若要在聊天里看出是哪份报告，可调低 Markdown 上限多发图片，或直接用智能机器人通道（文件带文件名）。</div>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">15</span>日常管理</h2>
+    <div class="note">下面的命令<b>默认都加了 <code>sudo</code></b>。如果你已经把当前用户加进 <code>docker</code> 组，可以把 <code>sudo</code> 去掉。</div>
+    <pre><code># 状态
+curl http://&lt;IP&gt;:8899/api/status
+
+# 备份配置（导出 JSON）
+curl -OJ http://&lt;IP&gt;:8899/api/config/export
+
+# 停止 / 重启 / 日志
+sudo docker compose down
+sudo docker compose restart
+sudo docker compose logs -f
+
+# 升级：解压新包覆盖后
+sudo docker compose up -d --force-recreate
+
+# 改配置（sudo 装的 .env 归 root 所有，必须加 sudo 才能保存）
+sudo nano .env
+
+# 卸载
+sudo docker compose down &amp;&amp; rm -rf config .env</code></pre>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">16</span>故障排查</h2>
+    <table>
+      <tr><th class="l">现象</th><th class="l">处理</th></tr>
+      <tr><td class="l">端口被占用</td><td class="l">改 <code>docker-compose.yml</code> 的 <code>8899:8899</code> 左边端口，如 <code>9090:8899</code></td></tr>
+      <tr><td class="l">预置镜像架构不符（arm64 等）</td><td class="l">删掉 <code>dir2chat-*-image.tar.gz</code>，脚本自动从源码构建</td></tr>
+      <tr><td class="l">扫描不到文件</td><td class="l">检查 <code>WATCH_DIR</code> 是否存在、容器是否挂上 <code>/data</code>、规则 <code>include</code> 通配</td></tr>
+      <tr><td class="l">规则绑定看不到新通道</td><td class="l">点规则页右上角「↻ 刷新通道」</td></tr>
+      <tr><td class="l">通道「测试」失败</td><td class="l">看返回错误码说明（界面解释常见 errcode，如 45009 限频、93000 参数错）</td></tr>
+      <tr><td class="l">镜像载入慢</td><td class="l"><code>docker load</code> 解压约 183MB 镜像，耐心等几十秒</td></tr>
+      <tr><td class="l">定时开关不生效</td><td class="l">确认<b>该规则</b>的定时已启用且窗口非空；用「立即扫描」可随时强制推送验证通道</td></tr>
+      <tr><td class="l">改了轮询间隔没生效</td><td class="l">概览页改完要点「保存扫描设置」；规则里设了「独立轮询间隔」会覆盖全局</td></tr>
+      <tr><td class="l">规则里看不到某个通道</td><td class="l">该通道未启用。先到「通道」页启用，或点规则页「↻ 刷新通道」</td></tr>
+      <tr><td class="l">改系统时间报权限错误</td><td class="l">容器缺 <code>CAP_SYS_TIME</code>。确认 <code>docker-compose.yml</code> 有 <code>cap_add: [SYS_TIME]</code> 后重建容器</td></tr>
+      <tr><td class="l">自定义时间服务器添加失败</td><td class="l">检查地址是否含非法字符、端口是否在 1–65535、长度是否超 255；界面会给出具体原因</td></tr>
+      <tr><td class="l">NTP 同步失败</td><td class="l">先在「测试服务器」看是否可达；局域网服务器确认 UDP 123 未被防火墙拦截</td></tr>
+      <tr><td class="l">时间/记录显示时区不对</td><td class="l">检查「概览」的时区下拉是否选对；切换后记录时间会按新时区显示</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2><span class="n">17</span>手动构建 &amp; 清理构建缓存</h2>
+    <p>正常情况下离线包自带预置镜像，安装时<b>直接 <code>docker load</code>，不需要构建</b>。只有这两种情况才需要手动构建：① 你删掉了 <code>dir2chat-*-image.tar.gz</code>；② 你自己改了 <code>Dockerfile</code> 或 <code>requirements.txt</code>。这时必须联网拉基础镜像 <code>python:3.11-slim</code>。</p>
+    <pre><code># 手动构建镜像 + 重建容器
+sudo docker compose build
+sudo docker compose up -d --force-recreate</code></pre>
+    <div class="warn"><b>改完源码 / 依赖却不生效？多半是复用了旧的构建缓存。</b>Docker 逐层缓存，<code>requirements.txt</code> 没变时 <code>pip install</code> 那一层会直接复用，导致新代码没进去。清掉缓存再构建：</div>
+    <pre><code># 1) 忽略缓存、从头构建（最常用）
+sudo docker compose build --no-cache
+sudo docker compose up -d --force-recreate
+
+# 2) 清理 BuildKit 构建缓存（-a 连未使用的也清，-f 不交互确认）
+sudo docker builder prune            # 交互确认后清理
+sudo docker builder prune -af        # 直接全部清掉
+
+# 3) 清理悬空镜像（构建残留的 &lt;none&gt; 旧层）
+sudo docker image prune -f
+
+# 4) 先看看各类占用多少，再决定清哪个
+sudo docker system df
+
+# 5) 彻底清干净（慎用：会删掉所有未使用的镜像 / 缓存 / 网络）
+sudo docker system prune -af</code></pre>
+    <div class="note">清构建缓存只影响下次构建速度（会重新下载 / 安装依赖），<b>不会动到 <code>config/</code> 里的数据</b>——通道、规则、发送记录都在 <code>config/</code> 卷里，安全。</div>
+  </div>
+
+  <div class="ok">完成！打开 <b>http://&lt;机器IP&gt;:8899</b> 即可在界面里添加通道与规则。凭据由你自己在界面填写，本包不含任何密钥。</div>
+
+</div>
+<footer>dir2chat 26.10.14 · Docker 一键部署包 · 配置与数据均在本地，不依赖任何外部服务</footer>
+</body>
+</html>
