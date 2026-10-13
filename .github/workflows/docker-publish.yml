@@ -1,0 +1,46 @@
+name: Build and push multi-arch image
+
+# 推送 v* 版本 tag 时自动构建 amd64 + arm64 双架构镜像并推送到 Docker Hub；
+# 也可以在 Actions 页面手动触发（workflow_dispatch）。
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  IMAGE_NAME: smi1ezz/dir2chat
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU（arm64 模拟）
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Read version
+        id: ver
+        run: echo "v=$(tr -d '[:space:]' < VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ steps.ver.outputs.v }}
+            ${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
