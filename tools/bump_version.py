@@ -28,7 +28,7 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VERSION_FILE = os.path.join(ROOT, "VERSION")
 COMPOSE_FILE = os.path.join(ROOT, "docker-compose.yml")
-IMAGE_NAME = "dir2chat"
+IMAGE_NAME = "smi1ezz/dir2chat"
 
 _VER_RE = re.compile(r"^\s*(\d{1,2})\.(\d{1,2})\.(\d+)\s*$")
 

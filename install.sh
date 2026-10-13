@@ -11,12 +11,15 @@
 #   sudo bash install.sh                           # 当前用户没有 Docker 权限时（未加入 docker 组）用 root 运行
 #
 # 流程：解析目录/端口/监听目录 → 部署文件 → 检查 Docker → 生成 .env → 校验监听目录
-#       → 创建 config → 载入预置镜像(离线) 或 从源码构建 → 启动 → 等待健康
+#       → 创建 config → 拉取镜像(必要时从源码构建) → 启动 → 等待健康
 #
 set -euo pipefail
 
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="26.10.14"
+VERSION="26.10.15"
+# 官方镜像（Docker Hub）。自建私有仓库 / 内网镜像源可用 DIR2CHAT_IMAGE 覆盖，例如：
+#   DIR2CHAT_IMAGE=harbor.local/library/dir2chat bash install.sh
+IMAGE="${DIR2CHAT_IMAGE:-smi1ezz/dir2chat}"
 
 # ---------- 0. 解析参数 ----------
 INSTALL_DIR="${1:-/vol1/1000/docker/dir2chat}"
@@ -54,11 +57,9 @@ DEPLOY_DIR="$PKG_DIR"
 #   .env.example       首次安装用来生成 .env
 #   install.sh         留在安装目录，日后可直接 ./install.sh 升级
 # 明确【不】拷贝：
-#   README.md / 教程.html / CHANGELOG.md   要看去包里看，跑服务用不到
-#   .gitignore / tools/                    开发用
+#   README.md / 教程.html / CHANGELOG.md   要看去仓库里看，跑服务用不到
+#   .gitignore / .git / tools/             开发用
 #   __pycache__ / *.pyc                    字节码缓存，与运行环境版本无关
-#   dir2chat-*-image.tar.gz                ~68MB；载入 Docker 后即无用，
-#                                          脚本会直接从【包目录】里载入
 COPY_ITEMS="app docker-compose.yml Dockerfile requirements.txt VERSION .env.example install.sh"
 
 if [ "$(realpath "$INSTALL_DIR")" != "$(realpath "$PKG_DIR")" ]; then
@@ -174,29 +175,46 @@ fi
 mkdir -p config
 echo "✓ config/ 目录就绪（数据持久化于此处）"
 
-# ---------- 6. 载入预置镜像（离线） ----------
-# 离线包自带 dir2chat-<版本>-image.tar.gz，正常情况整机不联网也能装起来。
-# 顺序：找到 tar → 没载过就 docker load → 载入后校验架构 → 启动。
-# 预置镜像体积大（~68MB）、且载入 Docker 后就没用了，所以**不拷进安装目录**，
-# 这里先在【安装目录】找（用户自己放进来的），找不到再回【包目录】找。
-IMAGE_TAR=""
-for d in "$DEPLOY_DIR" "$PKG_DIR"; do
-  for f in "$d"/dir2chat-*-image.tar.gz "$d"/dir2chat-*-image.tar; do
-    [ -f "$f" ] && IMAGE_TAR="$f" && break 2
-  done
-done
-
+# ---------- 6. 准备镜像（优先从 Docker Hub 拉取） ----------
+# 三种来源，按顺序尝试：
+#   ① 本地已有 $IMAGE:$VERSION    → 直接用
+#   ② docker pull $IMAGE:$VERSION → 联网拉取（镜像为 amd64 / arm64 双架构，自动匹配本机）
+#   ③ 前两者都不行                → 从源码构建（需联网拉基础镜像 python:3.11-slim）
+LOCAL_IMAGE="${IMAGE}:${VERSION}"
 IMAGE_READY=0
 
-load_image() {
-  local tar="$1"
-  echo "→ 正在从 $tar 载入镜像（离线安装，无需联网）..."
-  if [[ "$tar" == *.gz ]]; then
-    gunzip -c "$tar" | docker load
+if docker image inspect "$LOCAL_IMAGE" >/dev/null 2>&1; then
+  echo "• 本地已有镜像 $LOCAL_IMAGE，跳过拉取"
+  IMAGE_READY=1
+else
+  echo "→ 正在拉取镜像 $LOCAL_IMAGE ..."
+  if docker pull "$LOCAL_IMAGE"; then
+    IMAGE_READY=1
+    echo "✓ 镜像拉取完成"
   else
-    docker load -i "$tar"
+    echo "⚠ 镜像拉取失败（网络不通 / Docker Hub 不可达 / 该版本不存在）"
+    echo "  将尝试从源码构建（需联网拉取基础镜像 python:3.11-slim）..."
   fi
-}
+fi
+
+if [ "$IMAGE_READY" != "1" ]; then
+  if ! docker image inspect python:3.11-slim >/dev/null 2>&1; then
+    docker pull python:3.11-slim >/dev/null 2>&1 || true
+  fi
+  if docker image inspect python:3.11-slim >/dev/null 2>&1; then
+    echo "→ 正在从源码构建镜像 $LOCAL_IMAGE ..."
+    if ! docker build -t "$LOCAL_IMAGE" .; then
+      echo "✗ 镜像构建失败，安装中止"
+      exit 1
+    fi
+    IMAGE_READY=1
+  else
+    echo "✗ 无法获取基础镜像 python:3.11-slim，构建无法进行，安装中止。"
+    echo "  可选：① 检查到 Docker Hub 的网络，或给 Docker 配置镜像加速器后重跑；"
+    echo "        ② 在能联网的机器上 docker save 后拷过来 docker load。"
+    exit 1
+  fi
+fi
 
 # 主机架构（uname -m 归一化，与 docker 的 Architecture 字段对齐）
 HOST_ARCH="$(uname -m)"
@@ -207,57 +225,26 @@ esac
 
 # 读某个镜像的架构。⚠️ 必须容错：
 # Docker 28 的 CLI 在对象不存在时会先往 stdout 写一个空行、再以非零码退出，
-# 所以绝不能写成 `$(docker inspect -f ... 2>/dev/null || echo "$HOST_ARCH")` ——
-# 那样会得到 "\namd64" 这种「带前导空行」的值，和 "amd64" 一比就误判成架构不符。
+# 所以绝不能写成「docker inspect ... || echo $HOST_ARCH」这种带兜底值的写法 ——
+# 那样会得到「带前导空行」的值，和预期值一比就误判成架构不符。
 # 这里只取第一行非空内容并去掉首尾空白；对象不存在时返回空串。
 img_arch_of() {
   docker image inspect -f '{{.Architecture}}' "$1" 2>/dev/null | head -n1 | tr -d '[:space:]' || true
 }
 
-if docker image inspect "dir2chat:${VERSION}" >/dev/null 2>&1; then
-  echo "• 镜像 dir2chat:${VERSION} 已存在，跳过载入"
-  IMAGE_READY=1
-elif [ -n "$IMAGE_TAR" ]; then
-  # 先载入再校验：docker load 是纯本地操作、不需要联网，先载入没有副作用，
-  # 而且比「读尚未存在的镜像」靠谱得多。
-  if load_image "$IMAGE_TAR" && docker image inspect "dir2chat:${VERSION}" >/dev/null 2>&1; then
-    IMAGE_READY=1
-    IMG_ARCH="$(img_arch_of "dir2chat:${VERSION}")"
-    if [ -n "$IMG_ARCH" ] && [ "$IMG_ARCH" != "$HOST_ARCH" ]; then
-      # 架构不符时【只告警、不回退去联网构建】—— 离线机联网构建必然失败，
-      # 保留镜像至少能给出真实错误，也便于改用跨架构模拟。
-      echo "⚠ 预置镜像架构($IMG_ARCH)与主机($HOST_ARCH)不一致，容器可能无法直接运行。"
-      echo "  如需在该主机运行：先启用 binfmt/qemu 跨架构模拟，或改用对应架构的安装包。"
-    else
-      echo "✓ 预置镜像已载入，架构匹配（${IMG_ARCH:-$HOST_ARCH}）"
-    fi
-  else
-    echo "✗ 预置镜像载入失败：$IMAGE_TAR"
-    echo "  请确认文件完整（可对比发布页的 sha256），或换用完整安装包后重试。"
-    exit 1
-  fi
+IMG_ARCH="$(img_arch_of "$LOCAL_IMAGE")"
+if [ -n "$IMG_ARCH" ] && [ "$IMG_ARCH" != "$HOST_ARCH" ]; then
+  echo "⚠ 镜像架构($IMG_ARCH)与主机($HOST_ARCH)不一致，容器可能无法运行。"
+  echo "  官方镜像支持 amd64 / arm64；其它架构请自行 docker build 构建。"
 else
-  echo "• 未找到预置镜像 tar，改用源码构建。"
-  echo "  ⚠ 源码构建需要联网从镜像仓库拉取基础镜像 python:3.11-slim，离线环境会失败。"
-  if ! docker image inspect python:3.11-slim >/dev/null 2>&1; then
-    echo "✗ 本地也没有 python:3.11-slim，无法离线构建，安装中止。"
-    echo "  可选：① 改用带 image.tar.gz 的完整安装包（推荐）；"
-    echo "        ② 先在本机 docker pull python:3.11-slim 再重跑；"
-    echo "        ③ 给 Docker 配置可用的镜像加速器后重跑。"
-    exit 1
-  fi
+  echo "✓ 镜像就绪：$LOCAL_IMAGE（架构 ${IMG_ARCH:-$HOST_ARCH}）"
 fi
 
 # ---------- 7. 启动 ----------
 echo ""
 echo "→ 启动 dir2chat 容器（端口 $DIR2CHAT_PORT）..."
-if [ "$IMAGE_READY" = "1" ]; then
-  # 镜像已在本地（离线包预置），显式禁止 compose 再去联网 build：
-  # 否则一旦 build 被触发，就需要从镜像仓库拉基础镜像，离线机必然失败。
-  docker compose up -d --no-build
-else
-  docker compose up -d
-fi
+# 镜像已就绪：显式禁止 compose 触发 build（避免意外走耗时的源码构建）
+docker compose up -d --no-build
 
 # ---------- 8. 等待健康 ----------
 echo "→ 等待服务就绪（最多 60s）..."
@@ -288,13 +275,13 @@ echo "  常用命令（当前用户若不在 docker 组，需要 sudo；下面�
 echo "    停止：    sudo docker compose down"
 echo "    重启：    sudo docker compose restart"
 echo "    查看日志： sudo docker compose logs -f"
-echo "    升级：    覆盖文件后 sudo ./install.sh 或 sudo docker compose up -d --force-recreate"
+echo "    升级：    sudo docker compose pull && sudo docker compose up -d"
 echo "    换端口：  sudo DIR2CHAT_PORT=8091 bash install.sh   # 自动改 .env 并重建容器"
 echo "    换监听目录：sudo WATCH_DIR=/srv/report bash install.sh   # 自动改 .env 并重建容器"
 echo "    卸载：    sudo docker compose down && rm -rf config .env"
 echo "    改 .env： sudo nano .env        # sudo 装的 .env 归 root，普通用户改不了"
 echo ""
-echo "  ⚠ 如果你是【手动构建】的（没用预置镜像，改过 Dockerfile / requirements.txt）："
+echo "  ⚠ 如果你是从【源码构建】的（改过源码 / Dockerfile / requirements.txt）："
 echo "    改完必须重建镜像，且建议先清构建缓存，否则会一直复用旧层、改动不生效："
 echo "      sudo docker compose build --no-cache     # 忽略缓存、从头构建镜像"
 echo "      sudo docker compose up -d --force-recreate   # 用新镜像重建容器"

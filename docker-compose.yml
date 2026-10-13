@@ -1,7 +1,11 @@
 services:
   dir2chat:
-    build: .
-    image: dir2chat:26.10.14
+    # 直接用 Docker Hub 上的官方镜像（首次 up 自动 pull；amd64 / arm64 双架构均支持）。
+    # 想从源码自行构建：取消下面 build 行的注释，然后
+    #   docker compose build && docker compose up -d --force-recreate
+    # （build 与 image 同时存在时，compose 会把构建结果打成 image 这个名字）
+    image: smi1ezz/dir2chat:26.10.15
+    # build: .
     container_name: dir2chat
     restart: unless-stopped
     # 允许容器修改系统时间（「时区与时间」里的手动设置 / NTP 同步需要）。

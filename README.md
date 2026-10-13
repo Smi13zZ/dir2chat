@@ -1,8 +1,6 @@
 # dir2chat 安装与配置教程
 
-> 版本：**26.10.14** ｜ 一句话：监听一个目录，把新增/变更的**图片和 Markdown** 定时推送到企业微信、QQ 的聊天里，带 Web 配置界面，Docker 一键起。
-
-> 版本规则（自本版起）：`年.月.序号` —— 年份末两位 . 月份 . 该月内从 0 开始的递增序号。序号从 0 起算，因此 26.10.14 = 2026 年 10 月的第 15 个版本。
+> 版本：**26.10.15** ｜ 一句话：监听一个目录，把新增/变更的**图片和 Markdown** 定时推送到企业微信、QQ 的聊天里，带 Web 配置界面，Docker 一键起。
 
 ---
 
@@ -35,24 +33,28 @@ dir2chat 是一个常驻的 Docker 服务：
 ## 2. 环境要求
 
 - **Docker Engine 20.10+**，且包含 **docker compose v2**（`docker compose version` 有输出）
-- 推荐 **Linux / amd64**（本包已内置该架构的预置镜像，可**离线安装**）；其他架构会自动改为从源码构建（需联网）
+- 支持 **Linux amd64 / arm64**：官方镜像为双架构，`docker pull` 会自动匹配本机架构
+- 需要能访问 Docker Hub 拉取镜像；完全离线的机器可从源码自行构建（见第 10 节）
 - 约 **250MB** 磁盘空间
 - 仅本机 / 内网访问：防火墙放行 **8899** 端口（不要直接暴露到公网）
 
 ---
 
-## 3. 一键安装
+## 3. 安装
+
+镜像发布在 Docker Hub：**`smi1ezz/dir2chat`**（支持 amd64 / arm64；`:latest` 始终指向最新版）。
+
+### 方式一：一键脚本（推荐）
 
 ```bash
-# 解压
-tar xzf dir2chat-installer-26.10.14.tar.gz
-cd dir2chat-26.10.14
+git clone https://github.com/Smi13zZ/dir2chat.git
+cd dir2chat
 
-# 安装（会检查 Docker、生成配置、载入预置镜像并启动）
+# 安装（会检查 Docker、拉取镜像、生成配置并启动）
 sudo bash install.sh
 ```
 
-> **⚠ 请务必用 `sudo`（root 权限）运行。** 脚本要访问 `/var/run/docker.sock`、`docker load` 载入镜像、启动容器，普通用户会报
+> **⚠ 请务必用 `sudo`（root 权限）运行。** 脚本要访问 `/var/run/docker.sock`、拉取镜像、启动容器，普通用户会报
 > `permission denied while trying to connect to the Docker daemon socket`。
 > 如果已把当前用户加入 `docker` 组（`sudo usermod -aG docker $USER` 后**重新登录**，或 `newgrp docker`），可以不加 sudo。
 
@@ -60,7 +62,7 @@ sudo bash install.sh
 
 ```bash
 ./install.sh                                  # 装到默认目录 /vol1/1000/docker/dir2chat（就地运行时即当前目录）
-./install.sh /vol1/1000/docker/dir2chat       # 指定安装目录（只拷运行所需文件，文档/工具/镜像留在包里）
+./install.sh /vol1/1000/docker/dir2chat       # 指定安装目录（只拷运行所需文件）
 DIR2CHAT_PORT=8091 ./install.sh               # 8899 被占用时换端口（自动写回 .env 并重建容器）
 WATCH_DIR=/srv/report ./install.sh            # 直接指定监听目录（自动写回 .env，覆盖默认值）
 FORCE=1 ./install.sh                          # 目录已部署过时，覆盖程序文件但保留数据(config/ 与 .env)
@@ -69,31 +71,50 @@ FORCE=1 ./install.sh                          # 目录已部署过时，覆盖�
 sudo DIR2CHAT_PORT=8091 WATCH_DIR=/vol1/1000/report/daily-stock-analysis bash install.sh
 ```
 
-脚本会自动完成：解析目录/端口/监听目录 → 部署文件 → 检查 Docker → 生成 `.env` → 校验监听目录 → 创建 `config/` → 载入预置镜像（离线）→ 启动容器 → 等待健康检查。
+脚本会自动完成：解析目录/端口/监听目录 → 部署文件 → 检查 Docker → 生成 `.env` → 校验监听目录 → 创建 `config/` → 拉取镜像 → 启动容器 → 等待健康检查。
 
-> **Windows 用户**：在 WSL2 或 Git Bash 里跑 `sudo bash install.sh`；或 Docker Desktop 装好后直接手动执行 `docker compose up -d`（跳过脚本）。
+> **Windows 用户**：在 WSL2 或 Git Bash 里跑 `sudo bash install.sh`；或 Docker Desktop 装好后直接手动 `docker compose up -d`（跳过脚本）。
 
-### 包内结构（解压后）
+### 方式二：手动 docker compose（不跑脚本）
+
+把仓库里的 `docker-compose.yml` 和 `.env.example` 放到同一个目录，把 `.env.example` 改名为 `.env` 并填好 `WATCH_DIR`，然后：
+
+```bash
+sudo docker compose pull      # 拉取镜像（首次约 250MB）
+sudo docker compose up -d     # 启动
+```
+
+或者不用 compose，一条 `docker run` 直接起：
+
+```bash
+sudo docker run -d --name dir2chat --restart unless-stopped \
+  --network bridge -p 8899:8899 \
+  -v "$PWD/config:/config" \
+  -v /你/真实/的/目录:/data:ro \
+  -e DIR2CHAT_CONFIG_DIR=/config -e TZ=Asia/Shanghai \
+  smi1ezz/dir2chat:26.10.15
+```
+
+### 仓库结构
 
 ```
-dir2chat-26.10.14/
-├── install.sh                       # 一键安装脚本（支持目录/端口/FORCE 参数）
-├── README.md                        # 本教程
-├── 教程.html                        # 图文教程（同款视觉）
-├── CHANGELOG.md                     # 变更日志
-├── docker-compose.yml               # 服务编排（系统自带 bridge 网络，含 CAP_SYS_TIME）
-├── Dockerfile                       # 镜像构建
-├── requirements.txt                 # Python 依赖（源码构建用）
-├── .env.example                     # 配置样例
-├── VERSION                          # 版本号
-├── dir2chat-26.10.14-image.tar.gz   # 预置镜像（约 68MB，载入 Docker 后即可删除）
-├── app/                             # 服务源码
-└── tools/                           # 开发工具（版本号 bump 脚本）
+dir2chat/
+├── install.sh                  # 一键安装脚本（支持目录/端口/FORCE 参数）
+├── README.md                   # 本教程
+├── 教程.html                    # 图文教程（同款视觉）
+├── CHANGELOG.md                # 变更日志
+├── docker-compose.yml          # 服务编排（系统自带 bridge 网络，含 CAP_SYS_TIME）
+├── Dockerfile                  # 镜像构建文件（自行构建时用）
+├── requirements.txt            # Python 依赖
+├── .env.example                # 配置样例
+├── VERSION                     # 版本号
+├── app/                        # 服务源码
+└── tools/                      # 开发工具（版本号 bump 脚本）
 ```
 
 ### 安装目录结构（用 `./install.sh <目录>` 安装后）
 
-脚本**只拷贝跑起来真正需要的文件**；文档、开发工具、预置镜像都留在包里，安装目录保持干净：
+脚本**只拷贝跑起来真正需要的文件**；文档、开发工具留在仓库目录，安装目录保持干净：
 
 ```
 /vol1/1000/docker/dir2chat/
@@ -107,10 +128,8 @@ dir2chat-26.10.14/
 └── config/                 # 运行时配置与 SQLite（数据，重装不覆盖）
 ```
 
-> 预置镜像 `dir2chat-*-image.tar.gz` 有 ~68MB，载入 Docker 之后就没用了，
-> 所以**不会被拷进安装目录** —— 脚本直接从解压包里载入它。
-> 若想自己指定镜像包位置，把 tar 放进安装目录即可，脚本会优先用它。
-> 用默认的「就地运行」（`./install.sh` 不带目录）时，解压目录本身就是安装目录，不存在拷贝这一步。
+> 镜像不在安装目录落盘 —— 交给 Docker 自己管理，换版本只需 `docker compose pull`。
+> 用默认的「就地运行」（`./install.sh` 不带目录）时，仓库目录本身就是安装目录，不存在拷贝这一步。
 
 ---
 
@@ -334,8 +353,8 @@ sudo docker compose restart
 # 看日志
 sudo docker compose logs -f
 
-# 升级：解压新包覆盖后
-sudo docker compose up -d --force-recreate
+# 升级到最新镜像
+sudo docker compose pull && sudo docker compose up -d
 
 # 改配置（sudo 装的 .env 归 root 所有，必须加 sudo 才能保存）
 sudo nano .env
@@ -346,13 +365,13 @@ sudo docker compose down && rm -rf config .env
 
 ---
 
-## 10. 手动构建 & 清理构建缓存
+## 10. 从源码构建（可选）
 
-正常情况下离线包自带预置镜像，安装时直接 `docker load`，**不需要构建**。只有这两种情况才需要手动构建：
-① 你删掉了 `dir2chat-*-image.tar.gz`；② 你改了 `Dockerfile` 或 `requirements.txt`。这时必须联网拉基础镜像 `python:3.11-slim`。
+正常情况下直接用 Docker Hub 上的官方镜像即可，**不需要构建**。只有这两种情况才需要自己构建：
+① 你改了源码 / `Dockerfile` / `requirements.txt`；② 目标架构特殊、官方镜像跑不了。构建时需要联网拉基础镜像 `python:3.11-slim`。
 
 ```bash
-# 手动构建镜像 + 重建容器
+# 在仓库目录里构建（打成与 compose 里相同的镜像名）+ 重建容器
 sudo docker compose build
 sudo docker compose up -d --force-recreate
 ```
@@ -388,11 +407,11 @@ sudo docker system prune -af
 | 现象                   | 处理                                                                                                              |
 | -------------------- | --------------------------------------------------------------------------------------------------------------- |
 | 端口被占用                | 改 `docker-compose.yml` 里 `8899:8899` 的左边端口，如 `9090:8899`                                                        |
-| 预置镜像架构不符（如 arm64 机器） | 删掉 `dir2chat-*-image.tar.gz`，脚本会自动从源码构建                                                                         |
+| 目标架构与镜像不符 | 官方镜像已支持 amd64 / arm64；其它架构请用 `docker compose build` 从源码构建 |
 | 扫描不到文件               | 检查 `.env` 的 `WATCH_DIR` 是否存在、容器是否挂上了 `/data`、规则的 `include` 通配是否正确                                               |
 | 通道「测试」失败             | 看返回的错误码说明（界面会解释常见 errcode，如 45009 频率限制、93000 参数错误）                                                              |
 | 规则绑定时看不到新通道          | 点规则页右上角「↻ 刷新通道」                                                                                                 |
-| 镜像载入慢                | `docker load` 解压约 183MB 镜像，耐心等几十秒                                                                               |
+| 镜像拉取慢 / 超时 | 给 Docker 配置镜像加速器（`daemon.json` 的 `registry-mirrors`）后重试 `docker compose pull` |
 | 定时开关不生效              | 确认**该规则**的「定时开关」已启用且时间窗口非空；改用「立即扫描」可随时强制推送验证通道                                                                  |
 | 改了轮询间隔没生效            | 概览页改完要点「保存扫描设置」；规则里设了「独立轮询间隔」会覆盖全局                                                                              |
 | 规则里看不到某个通道           | 该通道未启用。先到「通道」页把它「启用」，或点规则页「↻ 刷新通道」                                                                              |
@@ -410,7 +429,13 @@ sudo docker system prune -af
 
 ## 12. 版本与升级
 
-- 版本规则：`年.月.序号`（年份末两位 . 月份 . 该月内从 0 开始的递增序号）。例如 `26.10.0` = 2026 年 10 月第 1 版，`26.10.3` = 2026 年 10 月第 4 版；跨月/跨年序号归零。
-- 当前包内镜像与源码版本一致（**26.10.14**）。
-- 升级时直接解压新包覆盖，重跑 `./install.sh` 或 `docker compose up -d --force-recreate` 即可；`config/` 里的配置会保留。
-- 离线安装包命名规则：`dir2chat-installer-<版本>.tar.gz`（含预置镜像），历史版本保留不删。
+- 当前版本：**26.10.15**（见 `VERSION`；镜像 tag 与之一致，`latest` 始终指向最新版）。
+- **升级**：拉新镜像并重建容器，`config/` 里的配置与数据都会保留。
+
+```bash
+sudo docker compose pull
+sudo docker compose up -d
+```
+
+- 想锁定某个版本：把 `docker-compose.yml` 里的 `image:` 改成 `smi1ezz/dir2chat:<版本号>`。
+- 历史版本与变更记录见 [Releases](https://github.com/Smi13zZ/dir2chat/releases) 和 `CHANGELOG.md`。

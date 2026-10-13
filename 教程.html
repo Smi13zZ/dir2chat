@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>dir2chat 安装与配置教程 · 26.10.14</title>
+<title>dir2chat 安装与配置教程 · 26.10.15</title>
 <style>
   :root{
     --bg:#f5f7fb; --card:#ffffff; --ink:#1a1e26; --muted:#687180;
@@ -61,7 +61,7 @@
 <body>
 <div class="hero">
   <div class="hero-in">
-    <span class="badge">dir2chat 26.10.14</span>
+    <span class="badge">dir2chat 26.10.15</span>
     <h1>目录 → 聊天 推送服务</h1>
     <p>监听一个目录，把新增或变更的<b>图片和 Markdown</b> 定时推送到企业微信、QQ 的聊天里。带 Web 配置界面，Docker 一键起。<b>每条规则可独立定时与独立轮询间隔</b>、通道可自定义名称、记录页固定 15 行分页（可筛选/导出/点空白翻页）、配置可备份导入、<b>内置时区与时间同步（支持自定义服务器）</b>、<b>手机端适配</b>。</p>
   </div>
@@ -95,23 +95,29 @@
     <h2><span class="n">2</span>环境要求</h2>
     <ul>
       <li><b>Docker Engine 20.10+</b>，且包含 <b>docker compose v2</b>（<code>docker compose version</code> 有输出）</li>
-      <li>推荐 <b>Linux / amd64</b>（本包已内置该架构预置镜像，可<b>离线安装</b>）；其他架构自动改为从源码构建（需联网）</li>
+      <li>支持 <b>Linux amd64 / arm64</b>：官方镜像为双架构，<code>docker pull</code> 会自动匹配本机架构</li>
+      <li>需要能访问 Docker Hub 拉取镜像；完全离线的机器可从源码自行构建（见「从源码构建」一节）</li>
       <li>约 <b>250MB</b> 磁盘空间</li>
       <li>仅本机 / 内网访问：防火墙放行 <b>8899</b> 端口，<b>不要</b>直接暴露公网</li>
     </ul>
   </div>
 
   <div class="card">
-    <h2><span class="n">3</span>一键安装</h2>
-    <pre><code># 解压
-tar xzf dir2chat-installer-26.10.14.tar.gz
-cd dir2chat-26.10.14
+    <h2><span class="n">3</span>安装</h2>
+    <p>镜像发布在 Docker Hub：<code>smi1ezz/dir2chat</code>，支持 <b>amd64 / arm64</b> 双架构，<code>latest</code> 始终指向最新版。</p>
+    <h3>方式一：一键脚本（推荐）</h3>
+    <pre><code>git clone https://github.com/Smi13zZ/dir2chat.git
+cd dir2chat
 
-# 安装（检查 Docker → 生成配置 → 载入预置镜像 → 启动）
+# 安装（检查 Docker → 拉取镜像 → 生成配置 → 启动）
 sudo bash install.sh</code></pre>
-    <div class="warn"><b>请务必加 <code>sudo</code>（用 root 权限运行）。</b>安装脚本要调用 Docker——访问 <code>/var/run/docker.sock</code>、<code>docker load</code> 载入镜像、启动容器——普通用户执行会报 <code>permission denied while trying to connect to the Docker daemon socket</code>。<br>
+    <div class="warn"><b>请务必加 <code>sudo</code>（用 root 权限运行）。</b>安装脚本要调用 Docker——访问 <code>/var/run/docker.sock</code>、拉取镜像、启动容器——普通用户执行会报 <code>permission denied while trying to connect to the Docker daemon socket</code>。<br>
     如果你已经把自己加进了 <code>docker</code> 组（<code>sudo usermod -aG docker $USER</code>，之后<b>重新登录</b>或执行 <code>newgrp docker</code>），那么可以不加 sudo，直接 <code>bash install.sh</code>。</div>
-    <p>脚本会自动完成：检查 Docker → 生成 <code>.env</code> → 校验监听目录 → 创建 <code>config/</code> → 载入预置镜像（离线）→ 启动容器 → 等待健康检查。</p>
+    <p>脚本会自动完成：检查 Docker → 生成 <code>.env</code> → 校验监听目录 → 创建 <code>config/</code> → 拉取镜像 → 启动容器 → 等待健康检查。</p>
+    <h3>方式二：手动 docker compose</h3>
+    <p>把仓库里的 <code>docker-compose.yml</code> 与 <code>.env.example</code> 放到同一目录，<code>.env.example</code> 改名为 <code>.env</code> 并填好 <code>WATCH_DIR</code>：</p>
+    <pre><code>sudo docker compose pull      # 拉取镜像（首次约 250MB）
+sudo docker compose up -d     # 启动</code></pre>
     <h3>可用的前置变量</h3>
     <p>把变量写在 <code>bash install.sh</code> 之前，即可免手工改 <code>.env</code>：</p>
     <pre><code>DIR2CHAT_PORT=8091 bash install.sh          # 换对外端口（8899 被占用时）
@@ -123,18 +129,19 @@ bash install.sh /vol1/1000/docker/dir2chat  # 指定安装目录（只拷运行�
 sudo DIR2CHAT_PORT=8091 WATCH_DIR=/vol1/1000/report/daily-stock-analysis bash install.sh</code></pre>
     <p>这些值都会被写回 <code>.env</code>（<b>一行一条</b>），后续 <code>docker compose</code> 命令会自动沿用。</p>
     <div class="note">Windows 用户：在 <b>WSL2</b> 或 <b>Git Bash</b> 里跑 <code>sudo bash install.sh</code>；或 Docker Desktop 装好后直接手动 <code>docker compose up -d</code>。</div>
-    <h3>包内结构</h3>
-    <pre><code>dir2chat-26.10.14/
+    <h3>仓库结构</h3>
+    <pre><code>dir2chat/
 ├── install.sh                      # 一键安装脚本
 ├── README.md                       # 文字教程
 ├── 教程.html                       # 图文教程（本页）
+├── CHANGELOG.md                    # 变更日志
 ├── docker-compose.yml              # 服务编排（使用系统自带 bridge 网络）
-├── Dockerfile                      # 镜像构建
+├── Dockerfile                      # 镜像构建文件（自行构建时用）
+├── requirements.txt                # Python 依赖
 ├── .env.example                    # 配置样例
 ├── VERSION                         # 版本号
-├── dir2chat-26.10.14-image.tar.gz   # 预置镜像（可删）
 ├── app/                            # 服务源码
-└── config/                         # 运行时配置（首次启动生成）</code></pre>
+└── tools/                          # 开发工具</code></pre>
   </div>
 
   <div class="card">
@@ -306,8 +313,8 @@ sudo docker compose down
 sudo docker compose restart
 sudo docker compose logs -f
 
-# 升级：解压新包覆盖后
-sudo docker compose up -d --force-recreate
+# 升级到最新镜像
+sudo docker compose pull && sudo docker compose up -d
 
 # 改配置（sudo 装的 .env 归 root 所有，必须加 sudo 才能保存）
 sudo nano .env
@@ -321,11 +328,11 @@ sudo docker compose down &amp;&amp; rm -rf config .env</code></pre>
     <table>
       <tr><th class="l">现象</th><th class="l">处理</th></tr>
       <tr><td class="l">端口被占用</td><td class="l">改 <code>docker-compose.yml</code> 的 <code>8899:8899</code> 左边端口，如 <code>9090:8899</code></td></tr>
-      <tr><td class="l">预置镜像架构不符（arm64 等）</td><td class="l">删掉 <code>dir2chat-*-image.tar.gz</code>，脚本自动从源码构建</td></tr>
+      <tr><td class="l">目标架构与镜像不符</td><td class="l">官方镜像已支持 amd64 / arm64；其它架构可用 <code>docker compose build</code> 从源码构建</td></tr>
       <tr><td class="l">扫描不到文件</td><td class="l">检查 <code>WATCH_DIR</code> 是否存在、容器是否挂上 <code>/data</code>、规则 <code>include</code> 通配</td></tr>
       <tr><td class="l">规则绑定看不到新通道</td><td class="l">点规则页右上角「↻ 刷新通道」</td></tr>
       <tr><td class="l">通道「测试」失败</td><td class="l">看返回错误码说明（界面解释常见 errcode，如 45009 限频、93000 参数错）</td></tr>
-      <tr><td class="l">镜像载入慢</td><td class="l"><code>docker load</code> 解压约 183MB 镜像，耐心等几十秒</td></tr>
+      <tr><td class="l">镜像拉取慢 / 超时</td><td class="l">给 Docker 配镜像加速器（<code>daemon.json</code> 的 <code>registry-mirrors</code>）后重试 <code>docker compose pull</code></td></tr>
       <tr><td class="l">定时开关不生效</td><td class="l">确认<b>该规则</b>的定时已启用且窗口非空；用「立即扫描」可随时强制推送验证通道</td></tr>
       <tr><td class="l">改了轮询间隔没生效</td><td class="l">概览页改完要点「保存扫描设置」；规则里设了「独立轮询间隔」会覆盖全局</td></tr>
       <tr><td class="l">规则里看不到某个通道</td><td class="l">该通道未启用。先到「通道」页启用，或点规则页「↻ 刷新通道」</td></tr>
@@ -337,9 +344,9 @@ sudo docker compose down &amp;&amp; rm -rf config .env</code></pre>
   </div>
 
   <div class="card">
-    <h2><span class="n">17</span>手动构建 &amp; 清理构建缓存</h2>
-    <p>正常情况下离线包自带预置镜像，安装时<b>直接 <code>docker load</code>，不需要构建</b>。只有这两种情况才需要手动构建：① 你删掉了 <code>dir2chat-*-image.tar.gz</code>；② 你自己改了 <code>Dockerfile</code> 或 <code>requirements.txt</code>。这时必须联网拉基础镜像 <code>python:3.11-slim</code>。</p>
-    <pre><code># 手动构建镜像 + 重建容器
+    <h2><span class="n">17</span>从源码构建 &amp; 清理构建缓存</h2>
+    <p>正常情况下直接用 Docker Hub 上的官方镜像即可，<b>不需要构建</b>。只有这两种情况才需要自己构建：① 你改了源码 / <code>Dockerfile</code> / <code>requirements.txt</code>；② 目标架构特殊、官方镜像跑不了。构建时需要联网拉基础镜像 <code>python:3.11-slim</code>。</p>
+    <pre><code># 在仓库目录里构建（打成与 compose 相同的镜像名）+ 重建容器
 sudo docker compose build
 sudo docker compose up -d --force-recreate</code></pre>
     <div class="warn"><b>改完源码 / 依赖却不生效？多半是复用了旧的构建缓存。</b>Docker 逐层缓存，<code>requirements.txt</code> 没变时 <code>pip install</code> 那一层会直接复用，导致新代码没进去。清掉缓存再构建：</div>
@@ -365,6 +372,6 @@ sudo docker system prune -af</code></pre>
   <div class="ok">完成！打开 <b>http://&lt;机器IP&gt;:8899</b> 即可在界面里添加通道与规则。凭据由你自己在界面填写，本包不含任何密钥。</div>
 
 </div>
-<footer>dir2chat 26.10.14 · Docker 一键部署包 · 配置与数据均在本地，不依赖任何外部服务</footer>
+<footer>dir2chat 26.10.15 · 官方镜像 smi1ezz/dir2chat（amd64 / arm64）· 配置与数据均在本地，不依赖任何外部服务</footer>
 </body>
 </html>
