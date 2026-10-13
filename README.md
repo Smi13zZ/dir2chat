@@ -90,7 +90,7 @@ sudo docker compose up -d     # 启动
 sudo docker run -d --name dir2chat --restart unless-stopped \
   --network bridge -p 8899:8899 \
   -v "$PWD/config:/config" \
-  -v /你/真实/的/目录:/data:ro \
+  -v /你真实的目录:/data:ro \
   -e DIR2CHAT_CONFIG_DIR=/config -e TZ=Asia/Shanghai \
   smi1ezz/dir2chat:26.10.15
 ```
