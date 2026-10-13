@@ -3,8 +3,8 @@
 # dir2chat 一键安装脚本
 #
 # 用法（在【新机器】上）：
-#   bash install.sh                                # 装到默认目录 /vol1/1000/docker/dir2chat
-#   bash install.sh /vol1/1000/docker/dir2chat     # 指定安装目录
+#   bash install.sh                                # 就地安装（安装目录 = 本脚本所在目录）
+#   bash install.sh /opt/dir2chat                  # 指定安装目录
 #   DIR2CHAT_PORT=8091 bash install.sh             # 8899 被占用时换个端口
 #   WATCH_DIR=/你真实的目录 bash install.sh        # 指定监听目录（会写回 .env，覆盖默认值）
 #   FORCE=1 bash install.sh                        # 目录已部署过时，覆盖程序文件但保留数据(config/ 与 .env)
@@ -22,7 +22,8 @@ VERSION="26.10.15"
 IMAGE="${DIR2CHAT_IMAGE:-smi1ezz/dir2chat}"
 
 # ---------- 0. 解析参数 ----------
-INSTALL_DIR="${1:-/vol1/1000/docker/dir2chat}"
+# 默认「就地安装」：安装目录 = 脚本所在目录（clone 下来直接跑，不往别处拷）。
+INSTALL_DIR="${1:-$PKG_DIR}"
 DIR2CHAT_PORT="${DIR2CHAT_PORT:-8899}"
 FORCE="${FORCE:-0}"
 # 命令行传入的监听目录（`WATCH_DIR=/xx bash install.sh`），非空则写回 .env 覆盖默认值。
@@ -43,9 +44,9 @@ echo "  FORCE    : $FORCE"
 echo ""
 
 # ---------- 1. 部署文件到目标目录 ----------
-# 默认是「就地运行」（解压目录 == 安装目录）。
+# 默认是「就地安装」（安装目录 == 脚本所在目录）。
 # 如果指定了别的目录，**只把跑起来真正需要的文件**拷过去 ——
-# 文档、开发工具、打包产物一律留在包里，安装目录保持干净。
+# 文档、开发工具一律留在仓库目录，安装目录保持干净。
 DEPLOY_DIR="$PKG_DIR"
 
 # 拷贝白名单（安装目录所需的最小集合）：
@@ -62,7 +63,11 @@ DEPLOY_DIR="$PKG_DIR"
 #   __pycache__ / *.pyc                    字节码缓存，与运行环境版本无关
 COPY_ITEMS="app docker-compose.yml Dockerfile requirements.txt VERSION .env.example install.sh"
 
-if [ "$(realpath "$INSTALL_DIR")" != "$(realpath "$PKG_DIR")" ]; then
+# 路径归一化（不要求路径已存在）。install.sh 的 INSTALL_DIR 常常是个还没建的目录，
+# 而 `realpath` 默认要求路径存在（否则报错+返回空串），所以优先用 realpath -m。
+norm_path() { realpath -m "$1" 2>/dev/null || printf '%s\n' "$1"; }
+
+if [ "$(norm_path "$INSTALL_DIR")" != "$(norm_path "$PKG_DIR")" ]; then
   if [ -e "$INSTALL_DIR" ]; then
     if [ "$FORCE" != "1" ]; then
       echo "✗ 目标目录已存在：$INSTALL_DIR"
@@ -86,7 +91,7 @@ if [ "$(realpath "$INSTALL_DIR")" != "$(realpath "$PKG_DIR")" ]; then
   # 清掉源码里可能夹带的字节码缓存（Py 3.13 的 .pyc 在 3.11 镜像里也没用）
   find "$INSTALL_DIR/app" -type d -name '__pycache__' -prune -exec rm -rf {} + 2>/dev/null || true
   find "$INSTALL_DIR/app" -type f \( -name '*.pyc' -o -name '*.pyo' \) -delete 2>/dev/null || true
-  echo "    （README/教程/CHANGELOG/tools/预置镜像等留在包目录 $PKG_DIR，不进安装目录）"
+  echo "    （README/教程/CHANGELOG/tools 等留在仓库目录 $PKG_DIR，不进安装目录）"
   DEPLOY_DIR="$INSTALL_DIR"
 fi
 cd "$DEPLOY_DIR"

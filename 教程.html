@@ -78,7 +78,7 @@
       <span class="box">🔁 幂等去重</span><span class="arr">→</span>
       <span class="box">💬 企业微信 / QQ</span>
     </div>
-    <p>定时轮询（默认 60s，可在界面上调，规则可单独设间隔）发现新文件或内容变更时，按你配置的规则推送。图片超大会自动压缩、Markdown 超长会退化成文件消息、再超长会切片。最典型的用法：把 daily-stock-analysis 每天生成的分享图 + 报告<b>自动发到群里</b>。</p>
+    <p>定时轮询（默认 60s，可在界面上调，规则可单独设间隔）发现新文件或内容变更时，按你配置的规则推送。图片超大会自动压缩、Markdown 超长会退化成文件消息、再超长会切片。最典型的用法：把每天生成的报表截图 + Markdown 报告<b>自动发到群里</b>。</p>
 
     <h3>支持的通道与能力对比</h3>
     <table>
@@ -120,10 +120,11 @@ sudo bash install.sh</code></pre>
 sudo docker compose up -d     # 启动</code></pre>
     <h3>可用的前置变量</h3>
     <p>把变量写在 <code>bash install.sh</code> 之前，即可免手工改 <code>.env</code>：</p>
-    <pre><code>DIR2CHAT_PORT=8091 bash install.sh          # 换对外端口（8899 被占用时）
+    <pre><code>bash install.sh                             # 就地安装（默认：装到脚本所在目录）
+DIR2CHAT_PORT=8091 bash install.sh          # 换对外端口（8899 被占用时）
 WATCH_DIR=/你真实的目录 bash install.sh   # 指定监听目录
 FORCE=1 bash install.sh                     # 目录已部署过：覆盖程序文件、保留 config/ 与 .env
-bash install.sh /vol1/1000/docker/dir2chat  # 指定安装目录（只拷运行所需文件）
+bash install.sh /opt/dir2chat               # 指定安装目录（只拷运行所需文件）
 
 # 可以叠加：一次把端口和监听目录都定好
 sudo DIR2CHAT_PORT=8091 WATCH_DIR=/你真实的目录 bash install.sh</code></pre>
@@ -132,7 +133,8 @@ sudo DIR2CHAT_PORT=8091 WATCH_DIR=/你真实的目录 bash install.sh</code></pr
     <h3>仓库结构</h3>
     <pre><code>dir2chat/
 ├── install.sh                      # 一键安装脚本
-├── README.md                       # 文字教程
+├── README.md                       # 中文教程
+├── README_EN.md                    # 英文教程
 ├── 教程.html                       # 图文教程（本页）
 ├── CHANGELOG.md                    # 变更日志
 ├── docker-compose.yml              # 服务编排（使用系统自带 bridge 网络）
@@ -157,7 +159,7 @@ DIR2CHAT_PORT=8899</code></pre>
     <code>WATCH_DIR=/你真实的目录DIR2CHAT_PORT=8899</code><br>
     这会让 <code>WATCH_DIR</code> 变成一个不存在的路径、同时 <code>DIR2CHAT_PORT</code> 也彻底失效。<br>
     <code>WATCH_DIR=...</code> 之后必须换行。安装脚本写 <code>.env</code> 时会自动保证「一行一条」（不会追加到上一行末尾）。</div>
-    <p>这个目录会被<b>只读</b>挂进容器的 <code>/data</code>。dir2chat 会<b>递归</b>扫描其下的子目录——所以像 DSA 那种 <code>share/2026-10-11/</code> 的日期子目录也能自动识别。</p>
+    <p>这个目录会被<b>只读</b>挂进容器的 <code>/data</code>。dir2chat 会<b>递归</b>扫描其下的子目录——所以像 <code>share/2026-10-11/</code> 这样的日期子目录也能自动识别。</p>
     <p>改完让配置生效：<code>sudo docker compose up -d</code>。注意：<code>.env</code> 里写的是<b>宿主机路径</b>，容器内部固定是 <code>/data</code>。</p>
   </div>
 
@@ -292,7 +294,7 @@ DIR2CHAT_PORT=8899</code></pre>
     <h2><span class="n">14</span>推送规则与行为</h2>
     <ul>
       <li><b>轮询扫描</b>：默认 60s 一次（概览页可调，规则可单独覆盖）；文件需「稳定 5s 且大小两次不变」才处理，避免发半截文件</li>
-      <li><b>幂等</b>：同一 <code>(规则, 通道, 路径, sha256)</code> 只发一次；内容变了才重发（每天 DSA 重写报告会重发，没动的不刷屏）</li>
+      <li><b>幂等</b>：同一 <code>(规则, 通道, 路径, sha256)</code> 只发一次；内容变了才重发（每天重写过的报告会重发，没动的不刷屏）</li>
       <li><b>图片压缩</b>：超过通道上限自动压（webhook 2MB / 智能机器人 10MB）</li>
       <li><b>Markdown 退化</b>：超 3800 字节变文件消息；再超长切片并带 <code>(i/n)</code> 标记</li>
     </ul>

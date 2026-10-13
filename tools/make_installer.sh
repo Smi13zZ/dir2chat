@@ -2,6 +2,9 @@
 #
 # dir2chat 离线安装包生成脚本（在【已构建的机器】上运行，通常是 NAS 或开发机）
 #
+# ⚠️ 已弃用（26.10.15 起）：项目改为「Docker Hub 镜像分发」，不再发布离线安装包。
+#    本脚本仅作历史工具保留，不参与正常安装流程。
+#
 # 用法：
 #   bash tools/make_installer.sh              # 用 VERSION 文件的版本号
 #   bash tools/make_installer.sh 26.10.15     # 显式指定版本
@@ -31,7 +34,7 @@ REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 V="${1:-$(cat "$REPO_DIR/VERSION" | tr -d '[:space:]')}"
 SRC="${SRC:-$REPO_DIR}"
-OUT="${OUT:-/vol1/1000/development/dir2chat}"
+OUT="${OUT:-$REPO_DIR/dist}"
 
 echo ""
 echo "========================================"

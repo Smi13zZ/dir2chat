@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""比对【本地源码目录】与【NAS 部署目录】的文件，揪出「改了但没上传」的文件。
+"""比对【本地源码目录】与【远端部署目录】的文件，揪出「改了但没上传」的文件。
 
 起因：26.10.14 打包时漏传了 CHANGELOG.md 与 .env.example，导致打出来的包里是旧版
       （肉眼没看出来，是 md5 比对才发现的）。同类问题此前也发生过一次。
@@ -19,6 +19,7 @@
 """
 import argparse
 import hashlib
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -31,7 +32,8 @@ except Exception:
 HERE = Path(__file__).resolve().parent
 REPO_DIR = HERE.parent
 
-DEFAULT_REMOTE_DIR = "/vol1/1000/docker/dir2chat"
+# 远端部署目录：可用环境变量 DIR2CHAT_REMOTE_DIR 覆盖，或命令行 --remote-dir 指定。
+DEFAULT_REMOTE_DIR = os.environ.get("DIR2CHAT_REMOTE_DIR", "/opt/dir2chat")
 DEFAULT_REMOTE_SCRIPT = Path.home() / ".workbuddy" / "binaries" / "python" / "envs" / "default" / "Scripts" / "python.exe"
 REMOTE_PY_CANDIDATES = [
     Path.home() / ".workbuddy" / "binaries" / "python" / "envs" / "default" / "Scripts" / "python.exe",
