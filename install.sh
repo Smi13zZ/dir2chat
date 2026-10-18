@@ -5,18 +5,21 @@
 # 用法（在【新机器】上）：
 #   bash install.sh                                # 就地安装（安装目录 = 本脚本所在目录）
 #   bash install.sh /opt/dir2chat                  # 指定安装目录
-#   DIR2CHAT_PORT=8091 bash install.sh             # 8899 被占用时换个端口
-#   WATCH_DIR=/你真实的目录 bash install.sh        # 指定监听目录（会写回 .env，覆盖默认值）
-#   FORCE=1 bash install.sh                        # 目录已部署过时，覆盖程序文件但保留数据(config/ 与 .env)
+#   DIR2CHAT_PORT=8091 bash install.sh             # 8899 被占用时换个端口（自动改 compose 并重建容器）
+#   WATCH_DIR=/你真实的目录 bash install.sh        # 指定监听目录（自动改 compose）
+#   FORCE=1 bash install.sh                        # 目录已部署过时，覆盖程序文件但保留数据(config/)
 #   sudo bash install.sh                           # 当前用户没有 Docker 权限时（未加入 docker 组）用 root 运行
 #
-# 流程：解析目录/端口/监听目录 → 部署文件 → 检查 Docker → 生成 .env → 校验监听目录
+# 本项目不使用 .env：端口与监听目录直接写在 docker-compose.yml 里，
+# 本脚本通过 sed 就地替换 compose 中的端口 / 监听目录，保证幂等可重跑。
+#
+# 流程：解析目录/端口/监听目录 → 部署文件 → 检查 Docker → 改写 compose → 校验监听目录
 #       → 创建 config → 拉取镜像(必要时从源码构建) → 启动 → 等待健康
 #
 set -euo pipefail
 
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="26.10.17"
+VERSION="26.10.18"
 # 官方镜像（Docker Hub）。自建私有仓库 / 内网镜像源可用 DIR2CHAT_IMAGE 覆盖，例如：
 #   DIR2CHAT_IMAGE=harbor.local/library/dir2chat bash install.sh
 IMAGE="${DIR2CHAT_IMAGE:-smi1ezz/dir2chat}"
@@ -26,8 +29,7 @@ IMAGE="${DIR2CHAT_IMAGE:-smi1ezz/dir2chat}"
 INSTALL_DIR="${1:-$PKG_DIR}"
 DIR2CHAT_PORT="${DIR2CHAT_PORT:-8899}"
 FORCE="${FORCE:-0}"
-# 命令行传入的监听目录（`WATCH_DIR=/xx bash install.sh`），非空则写回 .env 覆盖默认值。
-# ⚠️ 必须在这里先存下来：下面第 4 步会用同名变量去读 .env，届时环境变量已被覆盖。
+# 命令行传入的监听目录（`WATCH_DIR=/xx bash install.sh`），非空则写进 compose 覆盖占位符。
 WATCH_DIR_ENV="${WATCH_DIR:-}"
 
 echo ""
@@ -38,7 +40,7 @@ echo ""
 echo "  安装目录 : $INSTALL_DIR"
 echo "  对外端口 : $DIR2CHAT_PORT"
 if [ -n "$WATCH_DIR_ENV" ]; then
-  echo "  监听目录 : $WATCH_DIR_ENV   （命令行指定，将写入 .env）"
+  echo "  监听目录 : $WATCH_DIR_ENV   （命令行指定，将写入 docker-compose.yml）"
 fi
 echo "  FORCE    : $FORCE"
 echo ""
@@ -51,17 +53,16 @@ DEPLOY_DIR="$PKG_DIR"
 
 # 拷贝白名单（安装目录所需的最小集合）：
 #   app/               程序本体（运行时依赖它，源码构建也依赖）
-#   docker-compose.yml 编排文件
+#   docker-compose.yml 编排文件（端口 / 监听目录也配置在这里）
 #   Dockerfile         源码构建时需要
 #   requirements.txt   源码构建时需要
 #   VERSION            版本号（构建时打进镜像，运行时读）
-#   .env.example       首次安装用来生成 .env
 #   install.sh         留在安装目录，日后可直接 ./install.sh 升级
 # 明确【不】拷贝：
 #   README.md / 教程.html / CHANGELOG.md   要看去仓库里看，跑服务用不到
 #   .gitignore / .git / tools/             开发用
 #   __pycache__ / *.pyc                    字节码缓存，与运行环境版本无关
-COPY_ITEMS="app docker-compose.yml Dockerfile requirements.txt VERSION .env.example install.sh"
+COPY_ITEMS="app docker-compose.yml Dockerfile requirements.txt VERSION install.sh"
 
 # 路径归一化（不要求路径已存在）。install.sh 的 INSTALL_DIR 常常是个还没建的目录，
 # 而 `realpath` 默认要求路径存在（否则报错+返回空串），所以优先用 realpath -m。
@@ -71,11 +72,11 @@ if [ "$(norm_path "$INSTALL_DIR")" != "$(norm_path "$PKG_DIR")" ]; then
   if [ -e "$INSTALL_DIR" ]; then
     if [ "$FORCE" != "1" ]; then
       echo "✗ 目标目录已存在：$INSTALL_DIR"
-      echo "  若要覆盖程序文件但保留数据(config/ 与 .env)，请加 FORCE=1 重跑："
+      echo "  若要覆盖程序文件但保留数据(config/)，请加 FORCE=1 重跑："
       echo "    FORCE=1 bash install.sh $INSTALL_DIR"
       exit 1
     fi
-    echo "→ FORCE 模式：覆盖程序文件，保留 config/ 与 .env（数据不丢）"
+    echo "→ FORCE 模式：覆盖程序文件，保留 config/（数据不丢）"
   else
     mkdir -p "$INSTALL_DIR"
     echo "→ 已创建安装目录：$INSTALL_DIR"
@@ -124,53 +125,55 @@ if ! docker info >/dev/null 2>&1; then
   exit 1
 fi
 
-# ---------- 3. 准备 .env ----------
-# 写 .env 的通用函数：KEY 存在就整行替换，不存在才追加。
-# ⚠️ 用 awk 重写整个文件，而不是 `echo >> .env` 追加 ——
-#    直接追加时，如果 .env 最后一行没有换行符（手工编辑过很常见），
-#    新行会跟最后一行**粘成一行**，例如
-#      WATCH_DIR=/你真实的目录DIR2CHAT_PORT=8899
-#    这样两个配置项就都失效了。awk 重写保证「一行一条」。
-env_set() {
-  local key="$1" val="$2"
-  awk -v k="$key" -v v="$val" '
-    $0 ~ "^" k "=" { print k "=" v; seen = 1; next }
-    { print }
-    END { if (!seen) print k "=" v }
-  ' .env > .env.tmp && mv .env.tmp .env
-}
+# ---------- 3. 改写 docker-compose.yml（端口 / 监听目录） ----------
+# compose 模板里有两处占位：
+#   ports:   - "8899:8899"               ← 冒号前的宿主端口
+#   volumes: - /dir2chat/watch-dir:/data:ro  ← 监听目录
+# 用 sed 就地替换，幂等：重跑时匹配的是「当前值」再替换，不会叠加。
+COMPOSE_FILE="docker-compose.yml"
 
-if [ ! -f .env ]; then
-  cp .env.example .env
-  echo "✓ 已根据 .env.example 生成 .env（请确认 WATCH_DIR 是否正确）"
-else
-  echo "• .env 已存在，跳过生成"
-fi
-
-# 端口：写回 .env，让 docker compose 每次都用同一个端口
-env_set DIR2CHAT_PORT "$DIR2CHAT_PORT"
-
-# 监听目录：命令行传了 WATCH_DIR=... 就写回 .env（覆盖 .env.example 的默认值）
-if [ -n "$WATCH_DIR_ENV" ]; then
-  env_set WATCH_DIR "$WATCH_DIR_ENV"
-  echo "✓ 已把监听目录写入 .env： WATCH_DIR=$WATCH_DIR_ENV"
-fi
-
-if [ ! -f .env ]; then
-  echo "✗ .env 仍缺失，安装中止"
+# 3.1 端口：把 `- "<当前宿主端口>:8899"` 换成 `- "$DIR2CHAT_PORT:8899"`
+CURRENT_PORT="$(grep -oE '"[0-9]+:8899"' "$COMPOSE_FILE" | head -1 | tr -d '"')"
+if [ -z "$CURRENT_PORT" ]; then
+  echo "✗ compose 里找不到端口映射行（- \"xxxx:8899\"），文件可能被改坏，安装中止"
   exit 1
 fi
+if [ "$CURRENT_PORT" != "$DIR2CHAT_PORT" ]; then
+  sed -i "s|\"${CURRENT_PORT}:8899\"|\"${DIR2CHAT_PORT}:8899\"|" "$COMPOSE_FILE"
+  echo "✓ 端口已写入 docker-compose.yml： $CURRENT_PORT → $DIR2CHAT_PORT"
+else
+  echo "• 端口已是 $DIR2CHAT_PORT，跳过"
+fi
 
-# ---------- 4. 校验 WATCH_DIR ----------
-WATCH_DIR="$(grep -E '^WATCH_DIR=' .env | head -1 | cut -d= -f2- | sed 's/[[:space:]]*$//')"
-if [ -z "$WATCH_DIR" ] || [[ "$WATCH_DIR" == *"你真实的目录"* ]] || [[ "$WATCH_DIR" == *"/path/to/"* ]]; then
+# 3.2 监听目录：把 `- <当前路径>:/data:ro` 换成 `- "$WATCH_DIR_ENV":/data:ro`
+current_watch_dir() {
+  grep -oE '\- [^:]+:/data:ro' "$COMPOSE_FILE" | head -1 | sed -e 's/^- //' -e 's|:/data:ro$||'
+}
+WATCH_DIR="$(current_watch_dir)"
+if [ -z "$WATCH_DIR" ]; then
+  echo "✗ compose 里找不到监听目录挂载行（- xxxx:/data:ro），文件可能被改坏，安装中止"
+  exit 1
+fi
+if [ -n "$WATCH_DIR_ENV" ] && [ "$WATCH_DIR" != "$WATCH_DIR_ENV" ]; then
+  sed -i "s|- .*:/data:ro|- ${WATCH_DIR_ENV}:/data:ro|" "$COMPOSE_FILE"
+  WATCH_DIR="$WATCH_DIR_ENV"
+  echo "✓ 监听目录已写入 docker-compose.yml： $WATCH_DIR"
+fi
+
+# ---------- 4. 校验监听目录 ----------
+if [ -z "$WATCH_DIR" ] || [[ "$WATCH_DIR" == *"watch-dir"* && "$WATCH_DIR" == *"/dir2chat/"* ]]; then
   echo ""
-  echo "✗ .env 里的 WATCH_DIR 还是占位符（或为空）：WATCH_DIR=/你真实的目录"
-  echo "  请改成你机器上【真实存在】的监听目录，再重新运行 ./install.sh"
+  echo "✗ docker-compose.yml 里的监听目录还是占位符：$WATCH_DIR"
+  echo "  请把它改成你机器上【真实存在】的目录，两种方式任选："
+  echo "    ① 直接编辑 docker-compose.yml 的 volumes 段："
+  echo "         - /你真实的目录:/data:ro"
+  echo "    ② 带变量重跑安装脚本："
+  echo "         WATCH_DIR=/你真实的目录 bash install.sh"
+  echo "  改完重新执行： docker compose up -d"
   exit 1
 fi
 if [ ! -d "$WATCH_DIR" ]; then
-  echo "⚠ 警告：WATCH_DIR=$WATCH_DIR 不存在，Docker 可能无法挂载该目录。"
+  echo "⚠ 警告：监听目录 $WATCH_DIR 不存在，Docker 可能无法挂载该目录。"
   echo "  请确认路径正确（支持 NFS / 外部卷，需宿主机本身可见该路径）。"
   echo "  继续安装，但服务启动后扫描可能读不到文件。"
 fi
@@ -181,14 +184,14 @@ echo "✓ config/ 目录就绪（数据持久化于此处）"
 
 # ---------- 6. 准备镜像（优先从 Docker Hub 拉取） ----------
 # 三种来源，按顺序尝试：
-#   ① 本地已有 $IMAGE:$VERSION    → 直接用
-#   ② docker pull $IMAGE:$VERSION → 联网拉取（镜像为 amd64 / arm64 双架构，自动匹配本机）
+#   ① 本地已有 $IMAGE:latest      → 直接用
+#   ② docker pull $IMAGE:latest   → 联网拉取（镜像为 amd64 / arm64 双架构，自动匹配本机）
 #   ③ 前两者都不行                → 从源码构建（需联网拉基础镜像 python:3.11-slim）
-LOCAL_IMAGE="${IMAGE}:${VERSION}"
+LOCAL_IMAGE="${IMAGE}:latest"
 IMAGE_READY=0
 
 if docker image inspect "$LOCAL_IMAGE" >/dev/null 2>&1; then
-  echo "• 本地已有镜像 $LOCAL_IMAGE，跳过拉取"
+  echo "• 本地已有镜像 $LOCAL_IMAGE，跳过拉取（要强制更新请先 docker pull $LOCAL_IMAGE）"
   IMAGE_READY=1
 else
   echo "→ 正在拉取镜像 $LOCAL_IMAGE ..."
@@ -196,7 +199,7 @@ else
     IMAGE_READY=1
     echo "✓ 镜像拉取完成"
   else
-    echo "⚠ 镜像拉取失败（网络不通 / Docker Hub 不可达 / 该版本不存在）"
+    echo "⚠ 镜像拉取失败（网络不通 / Docker Hub 不可达）"
     echo "  将尝试从源码构建（需联网拉取基础镜像 python:3.11-slim）..."
   fi
 fi
@@ -280,10 +283,9 @@ echo "    停止：    sudo docker compose down"
 echo "    重启：    sudo docker compose restart"
 echo "    查看日志： sudo docker compose logs -f"
 echo "    升级：    sudo docker compose pull && sudo docker compose up -d"
-echo "    换端口：  sudo DIR2CHAT_PORT=8091 bash install.sh   # 自动改 .env 并重建容器"
-echo "    换监听目录：sudo WATCH_DIR=/你真实的目录 bash install.sh   # 自动改 .env 并重建容器"
-echo "    卸载：    sudo docker compose down && rm -rf config .env"
-echo "    改 .env： sudo nano .env        # sudo 装的 .env 归 root，普通用户改不了"
+echo "    换端口：  sudo DIR2CHAT_PORT=8091 bash install.sh   # 自动改 compose 并重建容器"
+echo "    换监听目录：sudo WATCH_DIR=/你真实的目录 bash install.sh   # 自动改 compose 并重建容器"
+echo "    卸载：    sudo docker compose down && rm -rf config"
 echo ""
 echo "  ⚠ 如果你是从【源码构建】的（改过源码 / Dockerfile / requirements.txt）："
 echo "    改完必须重建镜像，且建议先清构建缓存，否则会一直复用旧层、改动不生效："

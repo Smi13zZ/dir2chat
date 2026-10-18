@@ -2,7 +2,7 @@
 
 English ｜ [**简体中文**](README.md)
 
-> Version: **26.10.17** ｜ In one line: watch a directory and push newly added / changed **images and Markdown files** to WeCom (WeChat Work) or QQ chats on a schedule — with a web UI for configuration and a one-command Docker deploy.
+> Version: **26.10.18** ｜ In one line: watch a directory and push newly added / changed **images and Markdown files** to WeCom (WeChat Work) or QQ chats on a schedule — with a web UI for configuration and a one-command Docker deploy.
 
 ---
 
@@ -52,7 +52,7 @@ The image is published on Docker Hub: **`smi1ezz/dir2chat`** (supports amd64 / a
 git clone https://github.com/Smi13zZ/dir2chat.git
 cd dir2chat
 
-# Install (checks Docker, pulls the image, generates config, starts the container)
+# Install (checks Docker, pulls the image, starts the container)
 sudo bash install.sh
 ```
 
@@ -62,33 +62,37 @@ sudo bash install.sh
 > If you have added your user to the `docker` group (`sudo usermod -aG docker $USER`, then **log in again**
 > or run `newgrp docker`), you can drop the `sudo`.
 
-The script accepts parameterised installs — put the variables before `bash install.sh` (they are all written back into `.env`):
+The script accepts parameterised installs — put the variables before `bash install.sh` (they are written into `docker-compose.yml`, and the container is recreated):
 
 ```bash
 ./install.sh                                  # install in place (default: current directory)
 ./install.sh /opt/dir2chat                    # explicit install directory (only runtime files are copied)
-DIR2CHAT_PORT=8091 ./install.sh               # change the port when 8899 is taken (written to .env, container recreated)
-WATCH_DIR=/path/to/watch ./install.sh         # set the watched directory (written to .env, overrides the default)
-FORCE=1 ./install.sh                          # directory already deployed: overwrite program files, keep data (config/ and .env)
+DIR2CHAT_PORT=8091 ./install.sh               # change the port when 8899 is taken (compose edited, container recreated)
+WATCH_DIR=/path/to/watch ./install.sh         # set the watched directory (compose edited automatically)
+FORCE=1 ./install.sh                          # directory already deployed: overwrite program files, keep data (config/)
 
 # They can be combined: set both port and watched directory in one go
 sudo DIR2CHAT_PORT=8091 WATCH_DIR=/path/to/watch bash install.sh
 ```
 
-The script does all of this: parse directory/port/watch dir → deploy files → check Docker → generate `.env` → validate the watched directory → create `config/` → pull the image → start the container → wait for the health check.
+The script does all of this: parse directory/port/watch dir → deploy files → check Docker → rewrite `docker-compose.yml` → validate the watched directory → create `config/` → pull the image → start the container → wait for the health check.
+
+> **This project does not use a `.env` file**: the port and the watched directory live directly in
+> `docker-compose.yml`. To change them, edit the compose file (or rerun the installer with variables).
 
 > **Windows users**: run `sudo bash install.sh` inside WSL2 or Git Bash; or install Docker Desktop and simply run `docker compose up -d` manually (skipping the script).
 
 ### Method 2: manual docker compose (no script)
 
-Put `docker-compose.yml` and `.env.example` from the repo into the same directory, rename `.env.example` to `.env`, fill in `WATCH_DIR`, then:
+Copy `docker-compose.yml` from the repo into any directory, edit the `volumes` section to replace
+`/dir2chat/watch-dir` with your real watched directory, then:
 
 ```bash
 sudo docker compose pull      # pull the image (~250MB the first time)
 sudo docker compose up -d     # start
 ```
 
-Or skip compose entirely and start it with a single `docker run`:
+### Method 3: a single docker run (no compose)
 
 ```bash
 sudo docker run -d --name dir2chat --restart unless-stopped \
@@ -96,7 +100,7 @@ sudo docker run -d --name dir2chat --restart unless-stopped \
   -v "$PWD/config:/config" \
   -v /path/to/watch:/data:ro \
   -e DIR2CHAT_CONFIG_DIR=/config -e TZ=Asia/Shanghai \
-  smi1ezz/dir2chat:26.10.17
+  smi1ezz/dir2chat:latest
 ```
 
 ### Repository layout
@@ -111,7 +115,6 @@ dir2chat/
 ├── docker-compose.yml          # service definition (system bridge network, includes CAP_SYS_TIME)
 ├── Dockerfile                  # image build file (for building from source)
 ├── requirements.txt            # Python dependencies
-├── .env.example                # config sample
 ├── VERSION                     # version number
 ├── app/                        # service source code
 └── tools/                      # development tools (version bump script)
@@ -129,7 +132,6 @@ repository directory so the install directory stays clean:
 ├── Dockerfile
 ├── requirements.txt
 ├── VERSION
-├── .env                    # generated on first install (data — never overwritten)
 ├── app/                    # service source code
 └── config/                 # runtime config + SQLite (data — never overwritten)
 ```
@@ -145,31 +147,20 @@ repository directory so the install directory stays clean:
 
 Two ways — pick either one.
 
-**Option 1 (recommended): pass the variable at install time**, the script writes it into `.env` for you:
+**Option 1 (recommended): pass the variable at install time**, the script writes it into `docker-compose.yml` for you:
 
 ```bash
 sudo WATCH_DIR=/path/to/watch bash install.sh
 ```
 
-**Option 2: edit `.env` by hand after installing**:
+**Option 2: edit `docker-compose.yml` directly** — in the `volumes` section, replace the watched-directory
+mount line with your real directory:
 
-```ini
-WATCH_DIR=/path/to/watch
-DIR2CHAT_PORT=8899
+```yaml
+    volumes:
+      - ./config:/config
+      - /path/to/watch:/data:ro     # ← only change the host path before the colon
 ```
-
-> **⚠ Make sure you have root when editing `.env`.** If you installed with `sudo bash install.sh`, both
-> `.env` and `config/` are owned by root, and a normal editor will tell you the file is read-only.
-> Use `sudo nano .env` (or `sudo vi .env`), then `sudo docker compose up -d`.
-
-> **⚠ One setting per line — never merge two lines.** A very common mistake (it silently disables both settings):
->
-> ```
-> WATCH_DIR=/path/to/watchDIR2CHAT_PORT=8899
-> ```
->
-> The line must break after `WATCH_DIR=...`. The install script always writes `.env` one-setting-per-line and
-> never appends to the end of the previous line.
 
 This directory is mounted **read-only** into the container at `/data`. dir2chat scans it **recursively**, so
 date-based subdirectories such as `share/2026-10-11/` are picked up automatically.
@@ -180,7 +171,7 @@ Apply your changes:
 sudo docker compose up -d
 ```
 
-> Tip: `.env` holds the **host** path; inside the container it is always `/data`. When writing rules, use `/data`.
+> Tip: the compose file holds the **host** path; inside the container it is always `/data`. When writing rules, use `/data`.
 
 ---
 
@@ -380,11 +371,12 @@ sudo docker compose logs -f
 # Upgrade to the latest image
 sudo docker compose pull && sudo docker compose up -d
 
-# Edit config (.env is owned by root when installed with sudo — sudo is required to save)
-sudo nano .env
+# Change the watched directory / port (edit docker-compose.yml, then recreate; or rerun install.sh with variables)
+sudo nano docker-compose.yml
+sudo docker compose up -d
 
 # Uninstall
-sudo docker compose down && rm -rf config .env
+sudo docker compose down && rm -rf config
 ```
 
 ---
@@ -435,7 +427,7 @@ sudo docker system prune -af
 | --- | --- |
 | Port already in use | Change the left-hand port in `docker-compose.yml`, e.g. `9090:8899` |
 | Architecture mismatch | The official image already covers amd64 / arm64; for anything else build from source with `docker compose build` |
-| No files detected | Check that `WATCH_DIR` in `.env` exists, that `/data` is actually mounted into the container, and that the rule's `include` wildcard is right |
+| No files detected | Check that the watched directory before `:/data:ro` in `docker-compose.yml` exists, that `/data` is actually mounted into the container, and that the rule's `include` wildcard is right |
 | Channel "Test" fails | Read the returned error code (the UI explains common errcodes such as 45009 rate limit, 93000 bad parameter) |
 | A new channel is missing when binding | Click "↻ Refresh channels" at the top right of the Rules page |
 | Image pull is slow / times out | Configure a registry mirror (`registry-mirrors` in `daemon.json`), then retry `docker compose pull` |
@@ -456,7 +448,7 @@ sudo docker system prune -af
 
 ## 12. Version and upgrade
 
-- Current version: **26.10.17** (see `VERSION`; the image tag matches it, and `latest` always points to the newest release).
+- Current version: **26.10.18** (see `VERSION`; the image uses the `latest` tag by default, which always points to the newest release).
 - **Upgrading**: pull the new image and recreate the container — your configuration and data in `config/` are preserved.
 
 ```bash

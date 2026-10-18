@@ -2,6 +2,30 @@
 
 ---
 
+## 26.10.18（2026-10-18）
+
+**安装方式简化：彻底去掉 `.env`，配置全部收敛到 `docker-compose.yml`**，镜像默认 tag 改为 `latest`。
+
+### 1. 🚫 取消 `.env` 配置
+- 删除 `.env.example`；端口与监听目录不再走环境变量插值，**直接写在 `docker-compose.yml` 里**：
+  - `ports: - "8899:8899"`（换端口只改冒号前数字）
+  - `volumes: - /dir2chat/watch-dir:/data:ro`（占位路径，改成自己的真实目录即可）
+- 改配置 = 编辑 compose 后 `docker compose up -d`，或带变量重跑安装脚本。
+
+### 2. 🔧 install.sh 相应简化
+- 不再生成 / 写回 `.env`，改为 **`sed` 就地替换 compose 里的端口与监听目录**（幂等，可重复执行）。
+- `DIR2CHAT_PORT` / `WATCH_DIR` 前置变量用法保持不变；`FORCE=1` 保留的数据目录只剩 `config/`。
+- 镜像拉取目标从 `:版本号` 改为 `:latest`。
+
+### 3. 🐳 镜像默认 tag → latest
+- `docker-compose.yml` 的 `image:` 从 `smi1ezz/dir2chat:26.10.17` 改为 **`smi1ezz/dir2chat:latest`**，升级只需 `docker compose pull && docker compose up -d`，不再改 compose。
+- 想锁定版本仍可手动把 `image:` 改成具体版本号。
+
+### 4. 📖 文档同步
+- README / README_EN / 教程.html：安装章节改为「compose 模板 + docker run 模板」三方式并列（脚本 / compose / docker run），删除全部 `.env` 相关说明（含 root 编辑、一行一条等条目），故障排查与日常管理命令同步更新。
+
+---
+
 ## 26.10.17（2026-10-14）
 
 **修复 Windows 检出时的换行符问题**：仓库内容本身无变化，仅调整 `.gitattributes` 规则。

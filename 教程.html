@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>dir2chat 安装与配置教程 · 26.10.17</title>
+<title>dir2chat 安装与配置教程 · 26.10.18</title>
 <style>
   :root{
     --bg:#f5f7fb; --card:#ffffff; --ink:#1a1e26; --muted:#687180;
@@ -61,7 +61,7 @@
 <body>
 <div class="hero">
   <div class="hero-in">
-    <span class="badge">dir2chat 26.10.17</span>
+    <span class="badge">dir2chat 26.10.18</span>
     <h1>目录 → 聊天 推送服务</h1>
     <p>监听一个目录，把新增或变更的<b>图片和 Markdown</b> 定时推送到企业微信、QQ 的聊天里。带 Web 配置界面，Docker 一键起。<b>每条规则可独立定时与独立轮询间隔</b>、通道可自定义名称、记录页固定 15 行分页（可筛选/导出/点空白翻页）、配置可备份导入、<b>内置时区与时间同步（支持自定义服务器）</b>、<b>手机端适配</b>。</p>
   </div>
@@ -109,27 +109,33 @@
     <pre><code>git clone https://github.com/Smi13zZ/dir2chat.git
 cd dir2chat
 
-# 安装（检查 Docker → 拉取镜像 → 生成配置 → 启动）
+# 安装（检查 Docker → 拉取镜像 → 启动）
 sudo bash install.sh</code></pre>
     <div class="warn"><b>请务必加 <code>sudo</code>（用 root 权限运行）。</b>安装脚本要调用 Docker——访问 <code>/var/run/docker.sock</code>、拉取镜像、启动容器——普通用户执行会报 <code>permission denied while trying to connect to the Docker daemon socket</code>。<br>
     如果你已经把自己加进了 <code>docker</code> 组（<code>sudo usermod -aG docker $USER</code>，之后<b>重新登录</b>或执行 <code>newgrp docker</code>），那么可以不加 sudo，直接 <code>bash install.sh</code>。</div>
-    <p>脚本会自动完成：检查 Docker → 生成 <code>.env</code> → 校验监听目录 → 创建 <code>config/</code> → 拉取镜像 → 启动容器 → 等待健康检查。</p>
+    <p>脚本会自动完成：检查 Docker → 改写 <code>docker-compose.yml</code> → 校验监听目录 → 创建 <code>config/</code> → 拉取镜像 → 启动容器 → 等待健康检查。</p>
     <h3>方式二：手动 docker compose</h3>
-    <p>把仓库里的 <code>docker-compose.yml</code> 与 <code>.env.example</code> 放到同一目录，<code>.env.example</code> 改名为 <code>.env</code> 并填好 <code>WATCH_DIR</code>：</p>
+    <p>把仓库里的 <code>docker-compose.yml</code> 拷到任意目录，编辑 <code>volumes</code> 段把 <code>/dir2chat/watch-dir</code> 改成你自己的真实监听目录：</p>
     <pre><code>sudo docker compose pull      # 拉取镜像（首次约 250MB）
 sudo docker compose up -d     # 启动</code></pre>
+    <h3>方式三：一条 docker run 直接起（不用 compose）</h3>
+    <pre><code>sudo docker run -d --name dir2chat --restart unless-stopped \
+  --network bridge -p 8899:8899 \
+  -v "$PWD/config:/config" \
+  -v /你真实的目录:/data:ro \
+  -e DIR2CHAT_CONFIG_DIR=/config -e TZ=Asia/Shanghai \
+  smi1ezz/dir2chat:latest</code></pre>
     <h3>可用的前置变量</h3>
-    <p>把变量写在 <code>bash install.sh</code> 之前，即可免手工改 <code>.env</code>：</p>
+    <p>把变量写在 <code>bash install.sh</code> 之前，脚本会自动改写 <code>docker-compose.yml</code> 并重建容器：</p>
     <pre><code>bash install.sh                             # 就地安装（默认：装到脚本所在目录）
 DIR2CHAT_PORT=8091 bash install.sh          # 换对外端口（8899 被占用时）
 WATCH_DIR=/你真实的目录 bash install.sh   # 指定监听目录
-FORCE=1 bash install.sh                     # 目录已部署过：覆盖程序文件、保留 config/ 与 .env
+FORCE=1 bash install.sh                     # 目录已部署过：覆盖程序文件、保留 config/
 bash install.sh /opt/dir2chat               # 指定安装目录（只拷运行所需文件）
 
 # 可以叠加：一次把端口和监听目录都定好
 sudo DIR2CHAT_PORT=8091 WATCH_DIR=/你真实的目录 bash install.sh</code></pre>
-    <p>这些值都会被写回 <code>.env</code>（<b>一行一条</b>），后续 <code>docker compose</code> 命令会自动沿用。</p>
-    <div class="note">Windows 用户：在 <b>WSL2</b> 或 <b>Git Bash</b> 里跑 <code>sudo bash install.sh</code>；或 Docker Desktop 装好后直接手动 <code>docker compose up -d</code>。</div>
+    <div class="note"><b>本项目不使用 <code>.env</code> 文件</b>：端口与监听目录直接写在 <code>docker-compose.yml</code> 里，改配置 = 编辑 compose（或带变量重跑安装脚本）。Windows 用户：在 <b>WSL2</b> 或 <b>Git Bash</b> 里跑 <code>sudo bash install.sh</code>；或 Docker Desktop 装好后直接手动 <code>docker compose up -d</code>。</div>
     <h3>仓库结构</h3>
     <pre><code>dir2chat/
 ├── install.sh                      # 一键安装脚本
@@ -140,7 +146,6 @@ sudo DIR2CHAT_PORT=8091 WATCH_DIR=/你真实的目录 bash install.sh</code></pr
 ├── docker-compose.yml              # 服务编排（使用系统自带 bridge 网络）
 ├── Dockerfile                      # 镜像构建文件（自行构建时用）
 ├── requirements.txt                # Python 依赖
-├── .env.example                    # 配置样例
 ├── VERSION                         # 版本号
 ├── app/                            # 服务源码
 └── tools/                          # 开发工具</code></pre>
@@ -149,18 +154,14 @@ sudo DIR2CHAT_PORT=8091 WATCH_DIR=/你真实的目录 bash install.sh</code></pr
   <div class="card">
     <h2><span class="n">4</span>配置监听目录（必须）</h2>
     <p>两种方式，任选其一。</p>
-    <p><b>方式一（推荐）：安装时直接带变量</b>，脚本会自动写进 <code>.env</code>：</p>
+    <p><b>方式一（推荐）：安装时直接带变量</b>，脚本会自动写进 <code>docker-compose.yml</code>：</p>
     <pre><code>sudo WATCH_DIR=/你真实的目录 bash install.sh</code></pre>
-    <p><b>方式二：装完之后手动改 <code>.env</code></b>：</p>
-    <pre><code>WATCH_DIR=/你真实的目录
-DIR2CHAT_PORT=8899</code></pre>
-    <div class="warn"><b>改 <code>.env</code> 前先确认有 root 权限。</b>如果你是用 <code>sudo bash install.sh</code> 装的，那么 <code>.env</code>、<code>config/</code> 都归 root 所有，普通用户打开会提示「只读 / 无法保存」。请用 <code>sudo nano .env</code>（或 <code>sudo vi .env</code>）编辑，改完再 <code>sudo docker compose up -d</code>。</div>
-    <div class="warn"><b>⚠ 一行一条，千万不要两行写在同一行。</b>常见错误是这样粘在一起：<br>
-    <code>WATCH_DIR=/你真实的目录DIR2CHAT_PORT=8899</code><br>
-    这会让 <code>WATCH_DIR</code> 变成一个不存在的路径、同时 <code>DIR2CHAT_PORT</code> 也彻底失效。<br>
-    <code>WATCH_DIR=...</code> 之后必须换行。安装脚本写 <code>.env</code> 时会自动保证「一行一条」（不会追加到上一行末尾）。</div>
+    <p><b>方式二：直接编辑 <code>docker-compose.yml</code></b> 的 <code>volumes</code> 段，把监听目录挂载行改成你的真实目录：</p>
+    <pre><code>volumes:
+  - ./config:/config
+  - /你真实的目录:/data:ro     # ← 只改冒号前面的宿主机路径</code></pre>
     <p>这个目录会被<b>只读</b>挂进容器的 <code>/data</code>。dir2chat 会<b>递归</b>扫描其下的子目录——所以像 <code>share/2026-10-11/</code> 这样的日期子目录也能自动识别。</p>
-    <p>改完让配置生效：<code>sudo docker compose up -d</code>。注意：<code>.env</code> 里写的是<b>宿主机路径</b>，容器内部固定是 <code>/data</code>。</p>
+    <p>改完让配置生效：<code>sudo docker compose up -d</code>。注意：compose 里写的是<b>宿主机路径</b>，容器内部固定是 <code>/data</code>。</p>
   </div>
 
   <div class="card">
@@ -318,11 +319,12 @@ sudo docker compose logs -f
 # 升级到最新镜像
 sudo docker compose pull && sudo docker compose up -d
 
-# 改配置（sudo 装的 .env 归 root 所有，必须加 sudo 才能保存）
-sudo nano .env
+# 改监听目录 / 端口（编辑 docker-compose.yml 后重建；或带变量重跑 install.sh）
+sudo nano docker-compose.yml
+sudo docker compose up -d
 
 # 卸载
-sudo docker compose down &amp;&amp; rm -rf config .env</code></pre>
+sudo docker compose down &amp;&amp; rm -rf config</code></pre>
   </div>
 
   <div class="card">
@@ -331,7 +333,7 @@ sudo docker compose down &amp;&amp; rm -rf config .env</code></pre>
       <tr><th class="l">现象</th><th class="l">处理</th></tr>
       <tr><td class="l">端口被占用</td><td class="l">改 <code>docker-compose.yml</code> 的 <code>8899:8899</code> 左边端口，如 <code>9090:8899</code></td></tr>
       <tr><td class="l">目标架构与镜像不符</td><td class="l">官方镜像已支持 amd64 / arm64；其它架构可用 <code>docker compose build</code> 从源码构建</td></tr>
-      <tr><td class="l">扫描不到文件</td><td class="l">检查 <code>WATCH_DIR</code> 是否存在、容器是否挂上 <code>/data</code>、规则 <code>include</code> 通配</td></tr>
+      <tr><td class="l">扫描不到文件</td><td class="l">检查 compose 里 <code>/data:ro</code> 前面的监听目录是否存在、容器是否挂上 <code>/data</code>、规则 <code>include</code> 通配</td></tr>
       <tr><td class="l">规则绑定看不到新通道</td><td class="l">点规则页右上角「↻ 刷新通道」</td></tr>
       <tr><td class="l">通道「测试」失败</td><td class="l">看返回错误码说明（界面解释常见 errcode，如 45009 限频、93000 参数错）</td></tr>
       <tr><td class="l">镜像拉取慢 / 超时</td><td class="l">给 Docker 配镜像加速器（<code>daemon.json</code> 的 <code>registry-mirrors</code>）后重试 <code>docker compose pull</code></td></tr>
@@ -374,6 +376,6 @@ sudo docker system prune -af</code></pre>
   <div class="ok">完成！打开 <b>http://&lt;机器IP&gt;:8899</b> 即可在界面里添加通道与规则。凭据由你自己在界面填写，本包不含任何密钥。</div>
 
 </div>
-<footer>dir2chat 26.10.17 · 官方镜像 smi1ezz/dir2chat（amd64 / arm64）· 配置与数据均在本地，不依赖任何外部服务</footer>
+<footer>dir2chat 26.10.18 · 官方镜像 smi1ezz/dir2chat（amd64 / arm64）· 配置与数据均在本地，不依赖任何外部服务</footer>
 </body>
 </html>

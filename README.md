@@ -2,7 +2,7 @@
 
 [**English**](README_EN.md) ｜ 简体中文
 
-> 版本：**26.10.17** ｜ 一句话：监听一个目录，把新增/变更的**图片和 Markdown** 定时推送到企业微信、QQ 的聊天里，带 Web 配置界面，Docker 一键起。
+> 版本：**26.10.18** ｜ 一句话：监听一个目录，把新增/变更的**图片和 Markdown** 定时推送到企业微信、QQ 的聊天里，带 Web 配置界面，Docker 一键起。
 
 ---
 
@@ -52,7 +52,7 @@ dir2chat 是一个常驻的 Docker 服务：
 git clone https://github.com/Smi13zZ/dir2chat.git
 cd dir2chat
 
-# 安装（会检查 Docker、拉取镜像、生成配置并启动）
+# 安装（会检查 Docker、拉取镜像、启动）
 sudo bash install.sh
 ```
 
@@ -60,33 +60,35 @@ sudo bash install.sh
 > `permission denied while trying to connect to the Docker daemon socket`。
 > 如果已把当前用户加入 `docker` 组（`sudo usermod -aG docker $USER` 后**重新登录**，或 `newgrp docker`），可以不加 sudo。
 
-脚本支持参数化安装，把变量写在 `bash install.sh` 之前即可（都会被写回 `.env`）：
+脚本支持参数化安装，把变量写在 `bash install.sh` 之前即可（会自动改写 `docker-compose.yml` 并重建容器）：
 
 ```bash
 ./install.sh                                  # 就地安装到当前目录（默认，推荐）
 ./install.sh /opt/dir2chat                    # 指定安装目录（只拷运行所需文件）
-DIR2CHAT_PORT=8091 ./install.sh               # 8899 被占用时换端口（自动写回 .env 并重建容器）
-WATCH_DIR=/你真实的目录 ./install.sh          # 直接指定监听目录（自动写回 .env，覆盖默认值）
-FORCE=1 ./install.sh                          # 目录已部署过时，覆盖程序文件但保留数据(config/ 与 .env)
+DIR2CHAT_PORT=8091 ./install.sh               # 8899 被占用时换端口（自动改 compose 并重建容器）
+WATCH_DIR=/你真实的目录 ./install.sh          # 直接指定监听目录（自动改 compose）
+FORCE=1 ./install.sh                          # 目录已部署过时，覆盖程序文件但保留数据(config/)
 
 # 可叠加：一次把端口和监听目录都定好
 sudo DIR2CHAT_PORT=8091 WATCH_DIR=/你真实的目录 bash install.sh
 ```
 
-脚本会自动完成：解析目录/端口/监听目录 → 部署文件 → 检查 Docker → 生成 `.env` → 校验监听目录 → 创建 `config/` → 拉取镜像 → 启动容器 → 等待健康检查。
+脚本会自动完成：解析目录/端口/监听目录 → 部署文件 → 检查 Docker → 改写 `docker-compose.yml` → 校验监听目录 → 创建 `config/` → 拉取镜像 → 启动容器 → 等待健康检查。
+
+> **本项目不使用 `.env` 文件**：端口与监听目录直接写在 `docker-compose.yml` 里，改配置 = 编辑 compose（或带变量重跑安装脚本）。
 
 > **Windows 用户**：在 WSL2 或 Git Bash 里跑 `sudo bash install.sh`；或 Docker Desktop 装好后直接手动 `docker compose up -d`（跳过脚本）。
 
 ### 方式二：手动 docker compose（不跑脚本）
 
-把仓库里的 `docker-compose.yml` 和 `.env.example` 放到同一个目录，把 `.env.example` 改名为 `.env` 并填好 `WATCH_DIR`，然后：
+把仓库里的 `docker-compose.yml` 拷到任意目录，编辑 `volumes` 段把 `/dir2chat/watch-dir` 改成你自己的真实监听目录，然后：
 
 ```bash
 sudo docker compose pull      # 拉取镜像（首次约 250MB）
 sudo docker compose up -d     # 启动
 ```
 
-或者不用 compose，一条 `docker run` 直接起：
+### 方式三：一条 docker run 直接起（不用 compose）
 
 ```bash
 sudo docker run -d --name dir2chat --restart unless-stopped \
@@ -94,7 +96,7 @@ sudo docker run -d --name dir2chat --restart unless-stopped \
   -v "$PWD/config:/config" \
   -v /你真实的目录:/data:ro \
   -e DIR2CHAT_CONFIG_DIR=/config -e TZ=Asia/Shanghai \
-  smi1ezz/dir2chat:26.10.17
+  smi1ezz/dir2chat:latest
 ```
 
 ### 仓库结构
@@ -109,7 +111,6 @@ dir2chat/
 ├── docker-compose.yml          # 服务编排（系统自带 bridge 网络，含 CAP_SYS_TIME）
 ├── Dockerfile                  # 镜像构建文件（自行构建时用）
 ├── requirements.txt            # Python 依赖
-├── .env.example                # 配置样例
 ├── VERSION                     # 版本号
 ├── app/                        # 服务源码
 └── tools/                      # 开发工具（版本号 bump 脚本）
@@ -126,7 +127,6 @@ dir2chat/
 ├── Dockerfile
 ├── requirements.txt
 ├── VERSION
-├── .env                    # 首次安装自动生成（数据，重装不覆盖）
 ├── app/                    # 服务源码
 └── config/                 # 运行时配置与 SQLite（数据，重装不覆盖）
 ```
@@ -140,38 +140,29 @@ dir2chat/
 
 两种方式，任选其一。
 
-**方式一（推荐）：安装时直接带变量**，脚本会自动写进 `.env`：
+**方式一（推荐）：安装时直接带变量**，脚本会自动写进 `docker-compose.yml`：
 
 ```bash
 sudo WATCH_DIR=/你真实的目录 bash install.sh
 ```
 
-**方式二：装完之后手动改 `.env`**：
+**方式二：直接编辑 `docker-compose.yml`** 的 `volumes` 段，把监听目录挂载行改成你的真实目录：
 
-```ini
-WATCH_DIR=/你真实的目录
-DIR2CHAT_PORT=8899
+```yaml
+    volumes:
+      - ./config:/config
+      - /你真实的目录:/data:ro     # ← 只改冒号前面的宿主机路径
 ```
 
-> **⚠ 改 `.env` 前先确认有 root 权限。** 用 `sudo bash install.sh` 装的话，`.env` 与 `config/` 都归 root 所有，普通用户编辑器会提示只读 / 无法保存 —— 请用 `sudo nano .env`（或 `sudo vi .env`）编辑，改完再 `sudo docker compose up -d`。
-
-> **⚠ 一行一条，不要把两行写在同一行。** 常见错误（会导致两个配置项同时失效）：
->
-> ```
-> WATCH_DIR=/你真实的目录DIR2CHAT_PORT=8899
-> ```
->
-> `WATCH_DIR=...` 后面必须换行。安装脚本写 `.env` 时会自动保证「一行一条」，不会追加到上一行末尾。
-
-这个目录会被**只读**挂进容器的 `/data`。dir2chat 会**递归**扫描其下的子目录——所以像 `share/2026-10-11/` 这样的日期子目录也能自动识别。
-
-改完 `.env` 后让配置生效：
+改完让配置生效：
 
 ```bash
 sudo docker compose up -d
 ```
 
-> 提示：`.env` 里写的是**宿主机路径**；容器内部固定是 `/data`。配置规则时填 `/data`。
+> 提示：compose 里写的是**宿主机路径**；容器内部固定是 `/data`。配置规则时填 `/data`。
+>
+> 这个目录会被**只读**挂进容器的 `/data`。dir2chat 会**递归**扫描其下的子目录——所以像 `share/2026-10-11/` 这样的日期子目录也能自动识别。
 
 ---
 
@@ -359,11 +350,12 @@ sudo docker compose logs -f
 # 升级到最新镜像
 sudo docker compose pull && sudo docker compose up -d
 
-# 改配置（sudo 装的 .env 归 root 所有，必须加 sudo 才能保存）
-sudo nano .env
+# 改监听目录 / 端口（编辑 docker-compose.yml 后重建容器；或带变量重跑 install.sh）
+sudo nano docker-compose.yml
+sudo docker compose up -d
 
 # 卸载
-sudo docker compose down && rm -rf config .env
+sudo docker compose down && rm -rf config
 ```
 
 ---
@@ -411,7 +403,7 @@ sudo docker system prune -af
 | -------------------- | --------------------------------------------------------------------------------------------------------------- |
 | 端口被占用                | 改 `docker-compose.yml` 里 `8899:8899` 的左边端口，如 `9090:8899`                                                        |
 | 目标架构与镜像不符 | 官方镜像已支持 amd64 / arm64；其它架构请用 `docker compose build` 从源码构建 |
-| 扫描不到文件               | 检查 `.env` 的 `WATCH_DIR` 是否存在、容器是否挂上了 `/data`、规则的 `include` 通配是否正确                                               |
+| 扫描不到文件               | 检查 `docker-compose.yml` 里 `/data:ro` 前面的监听目录是否存在、容器是否挂上了 `/data`、规则的 `include` 通配是否正确                                               |
 | 通道「测试」失败             | 看返回的错误码说明（界面会解释常见 errcode，如 45009 频率限制、93000 参数错误）                                                              |
 | 规则绑定时看不到新通道          | 点规则页右上角「↻ 刷新通道」                                                                                                 |
 | 镜像拉取慢 / 超时 | 给 Docker 配置镜像加速器（`daemon.json` 的 `registry-mirrors`）后重试 `docker compose pull` |
@@ -432,7 +424,7 @@ sudo docker system prune -af
 
 ## 12. 版本与升级
 
-- 当前版本：**26.10.17**（见 `VERSION`；镜像 tag 与之一致，`latest` 始终指向最新版）。
+- 当前版本：**26.10.18**（见 `VERSION`；镜像默认使用 `latest` tag，始终指向最新版）。
 - **升级**：拉新镜像并重建容器，`config/` 里的配置与数据都会保留。
 
 ```bash
