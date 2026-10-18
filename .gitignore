@@ -9,3 +9,4 @@ logs/
 .DS_Store
 *.log
 _dist/
+_local/

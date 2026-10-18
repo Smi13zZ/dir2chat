@@ -67,8 +67,8 @@ def already_sent(rule_id: str, channel_id: str, path: str, sha256: str) -> bool:
 def record(rule_id: str, channel_id: str, path: str, sha256: str, size: int,
            kind: str, status: str, error: Optional[str] = None) -> None:
     _conn().execute(
-        "INSERT INTO sent(rule_id, channel_id, path, sha256, size, kind, status, error) "
-        "VALUES(?,?,?,?,?,?,?,?)",
+        "INSERT INTO sent(rule_id, channel_id, path, sha256, size, kind, status, error, sent_at) "
+        "VALUES(?,?,?,?,?,?,?,?,datetime('now','localtime'))",
         (rule_id, channel_id, path, sha256, size, kind, status, (error or "")[:800]),
     )
     _conn().commit()
@@ -88,15 +88,18 @@ def stats() -> Dict[str, int]:
     ok = conn.execute("SELECT COUNT(*) c FROM sent WHERE status='ok'").fetchone()["c"]
     fail = conn.execute("SELECT COUNT(*) c FROM sent WHERE status!='ok'").fetchone()["c"]
     today = conn.execute(
-        "SELECT COUNT(*) c FROM sent WHERE status='ok' AND date(sent_at)=date('now')"
+        "SELECT COUNT(*) c FROM sent WHERE status='ok' AND date(sent_at)=date('now','localtime')"
     ).fetchone()["c"]
     return {"ok": ok, "fail": fail, "today": today}
 
 
 def log(level: str, message: str) -> None:
     try:
-        _conn().execute("INSERT INTO events(level, message) VALUES(?,?)",
-                        (level, message[:1000]))
+        # ⚠ SQLite 的 CURRENT_TIMESTAMP 恒为 UTC，与 TZ 环境变量无关；
+        # 这里显式写本地时间，否则事件日志在 Web 上会慢一个时区（UTC 显示）。
+        _conn().execute(
+            "INSERT INTO events(level, message, created_at) VALUES(?,?,datetime('now','localtime'))",
+            (level, message[:1000]))
         _conn().commit()
     except Exception:
         pass

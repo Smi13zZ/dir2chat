@@ -2,6 +2,18 @@
 
 ---
 
+## 26.10.19（2026-10-18）
+
+**修复事件日志 / 发送记录时间慢 8 小时（UTC 显示）的问题**。
+
+### 🐞 修复：SQLite `CURRENT_TIMESTAMP` 恒为 UTC
+- 现象：Web 界面「记录 → 事件日志 / 发送记录」里显示的时间比真实时间慢 8 小时（如实际 22:50 显示 14:50），而「概览」页的 epoch 类时间（上次扫描等）都正常。
+- 根因：`events.created_at` 与 `sent.sent_at` 用 SQLite 的 `DEFAULT CURRENT_TIMESTAMP`——它**永远返回 UTC**，与容器 `TZ=Asia/Shanghai` 无关；接口把该字符串原样返回给前端，于是整页时间都落在 UTC。
+- 修法：插入时显式写 `datetime('now','localtime')`（跟随容器本地时间，镜像已带 tzdata），今日统计 `date('now')` 同步改为 `date('now','localtime')`。无需迁移数据库；修复前的历史记录仍是 UTC 时间，介意的话在记录页一键清空即可。
+- 顺带核实：镜像内 `/usr/share/zoneinfo` 完整、`date` 输出 CST 正确，NTP 对时与定时窗口判断不受此问题影响（均基于 epoch）。
+
+---
+
 ## 26.10.18（2026-10-18）
 
 **安装方式简化：彻底去掉 `.env`，配置全部收敛到 `docker-compose.yml`**，镜像默认 tag 改为 `latest`。

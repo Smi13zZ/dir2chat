@@ -19,7 +19,7 @@
 set -euo pipefail
 
 PKG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VERSION="26.10.18"
+VERSION="26.10.19"
 # 官方镜像（Docker Hub）。自建私有仓库 / 内网镜像源可用 DIR2CHAT_IMAGE 覆盖，例如：
 #   DIR2CHAT_IMAGE=harbor.local/library/dir2chat bash install.sh
 IMAGE="${DIR2CHAT_IMAGE:-smi1ezz/dir2chat}"
